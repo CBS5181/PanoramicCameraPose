@@ -24,7 +24,7 @@ static void PopStyleCompact()
 	ImGui::PopStyleVar(2);
 }
 
-ToolLayer::ToolLayer() : m_pano01_depth(IMG_WIDTH* IMG_HEIGHT)
+ToolLayer::ToolLayer() : m_pano01_depth(IMG_WIDTH * IMG_HEIGHT)
 {
 	srand(time(0));
 
@@ -117,6 +117,7 @@ void ToolLayer::OnUIRender()
 		}
 	}
 
+	// Load LED2-Net corners
 	if (ImGui::Button("Load Corner"))
 	{
 		std::ifstream file("assets/txt/pano01_pred_corner_XY.txt");
@@ -146,14 +147,12 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Rotate Matching"))
+	if (ImGui::Button("Rotate Matching")) // Rotate right image corner for correct matching
 	{
 		s_MatchPoints.RotateRightPixels();
 	}
 
-
-
-	if (ImGui::Button("Save Match points"))
+	if (ImGui::Button("Save Match points")) // Save current matching points
 	{
 		std::ofstream file;
 		file.open("assets/txt/matching.txt");
@@ -166,7 +165,7 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Load Match points"))
+	if (ImGui::Button("Load Match points")) // Load matching points from txt file
 	{
 		std::ifstream file;
 		file.open("assets/txt/matching.txt");
@@ -185,7 +184,7 @@ void ToolLayer::OnUIRender()
 		std::cout << "Read match points : " << s_MatchPoints.size() << std::endl;
 	}
 
-	if (ImGui::Button("Calculate Relative Pose") && s_MatchPoints.size() >= 8)
+	if (ImGui::Button("Calculate Relative Pose") && s_MatchPoints.size() >= 8) // Solver
 	{
 		RelativePoseSolver::Solve("assets/img/pano01.jpg", "assets/img/pano03.jpg", s_MatchPoints.left_pixels, s_MatchPoints.right_pixels, m_match_depth, s_MatchPoints.weights);
 	}

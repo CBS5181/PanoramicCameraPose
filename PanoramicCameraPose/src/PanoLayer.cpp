@@ -79,7 +79,7 @@ void PanoLayer::OnUIRender()
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x, m_ViewportBounds[0].y + s_left_pixel.y }, sz * 0.5f, col);
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x, m_ViewportBounds[0].y + s_right_pixel.y + 512 }, sz * 0.5f, col);
 
-    // draw already matching point
+    // draw already matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)
     {
         //auto& [left_match, right_match] = matching_points[i];
@@ -104,7 +104,9 @@ void PanoLayer::OnUpdate()
     //std::cout << "x: " << mx << " y: " << my << std::endl;
     int mouseX = (int)mx;
     int mouseY = (int)my;
-    if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)viewportSize.y) {
+    // mouse picking
+    if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)viewportSize.y) 
+    {
         if (isMouseButtonLeftClick)
         {
             if (mouseY < 512)

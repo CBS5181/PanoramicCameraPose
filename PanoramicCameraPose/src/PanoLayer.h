@@ -18,7 +18,7 @@ private:
 
 	int m_image_width = 0;
 	int m_image_height = 0;
-	GLuint m_left_image = 0, m_right_image = 0;
+	GLuint m_left_image = 0, m_right_image = 0; // texture id
 	glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
-	glm::vec2 m_ViewportBounds[2];
+	glm::vec2 m_ViewportBounds[2] = {};
 };
