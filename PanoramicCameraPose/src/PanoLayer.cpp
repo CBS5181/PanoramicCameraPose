@@ -48,8 +48,8 @@ PanoLayer::PanoLayer() {}
 
 void PanoLayer::OnAttach()
 {
-	LoadTextureFromFile("assets/img/pano01.jpg", &m_left_image, &m_image_width, &m_image_height);
-	LoadTextureFromFile("assets/img/pano03.jpg", &m_right_image, &m_image_width, &m_image_height);
+	LoadTextureFromFile("assets/test_data/pano_orig/color.jpg", &m_left_image, &m_image_width, &m_image_height);
+	LoadTextureFromFile("assets/test_data/pano_T(0,0_5,0)/color.jpg", &m_right_image, &m_image_width, &m_image_height);
 }
 
 void PanoLayer::OnUIRender()

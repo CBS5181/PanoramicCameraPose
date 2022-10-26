@@ -121,8 +121,8 @@ void ToolLayer::OnUIRender()
 	// Load LED2-Net corners
 	if (ImGui::Button("Load Corner"))
 	{
-		std::ifstream file("assets/txt/pano01_pred_corner_XY.txt");
-		std::ifstream file2("assets/txt/pano03_pred_corner_XY.txt");
+		std::ifstream file("assets/test_data/pano_orig/pred_corner_XY.txt");
+		std::ifstream file2("assets/test_data/pano_T(0,0_5,0)/pred_corner_XY.txt");
 		//std::ifstream file2("pano_neg_PI_pred_corner_XY.txt");
 		std::string str, str2;
 		unsigned int cnt = 0;
@@ -187,7 +187,7 @@ void ToolLayer::OnUIRender()
 
 	if (ImGui::Button("Calculate Relative Pose") && s_MatchPoints.size() >= 8) // Solver
 	{
-		RelativePoseSolver::Solve("assets/img/pano01.jpg", "assets/img/pano03.jpg", s_MatchPoints.left_pixels, s_MatchPoints.right_pixels, m_match_depth, s_MatchPoints.weights);
+		RelativePoseSolver::Solve("assets/test_data/pano_orig/color.jpg", "assets/test_data/pano_T(0,0_5,0)/color.jpg", s_MatchPoints.left_pixels, s_MatchPoints.right_pixels, m_match_depth, s_MatchPoints.weights);
 	}
 
 }
