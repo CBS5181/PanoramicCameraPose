@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <ctime>
 #include "Solver.h"
 
 const unsigned int IMG_WIDTH = 1024;
