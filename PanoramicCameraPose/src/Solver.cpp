@@ -123,7 +123,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         // Robust estimation of the Essential matrix and its precision
         Mat3 E;
         const double precision = std::numeric_limits<double>::infinity(); // infinity() for weighted sample // D2R(4.0); 0.0698132  // 
-        std::cout << "precision" << precision << std::endl;
+        std::cout << "precision:" << precision << std::endl;
         //const std::pair<double, double> ACRansacOut =
         //   ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
         const std::pair<double, double> ACRansacOut = Weighted_ACRANSAC(kernel, vec_inliers, weights, 1024, &E, precision, true);
