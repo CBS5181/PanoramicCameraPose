@@ -10,16 +10,28 @@ struct MatchPoints
 	std::vector<glm::vec2> right_pixels;
 	std::vector<unsigned int> v_color;
 	std::vector<uint32_t> weights;
+	std::vector<glm::vec3> positions;
 
 	size_t size() { return cnt; }
 
-	void AddPoint(const glm::vec2& left, const glm::vec2& right, const unsigned int color, const uint32_t weight)
+	void AddPoint(const glm::vec2& left, const glm::vec2& right, const unsigned int color, const uint32_t weight, const glm::vec3& pos)
 	{
 		left_pixels.push_back(left);
 		right_pixels.push_back(right);
 		v_color.push_back(color);
 		weights.push_back(weight);
+		positions.push_back(pos);
 		++cnt;
+	}
+
+	void ClearPixel()
+	{
+		left_pixels.clear();
+		right_pixels.clear();
+		v_color.clear();
+		weights.clear();
+		positions.clear();
+		cnt = 0;
 	}
 
 	void RotateRightPixels()

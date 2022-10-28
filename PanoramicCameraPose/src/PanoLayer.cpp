@@ -1,55 +1,16 @@
 #include "Application.h"
 #include "PanoLayer.h"
 #include "ToolLayer.h"
-#include "stb_image.h"
 #include "imgui/imgui.h"
 #include <iostream>
 
-bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
-{
-    // Load from file
-    int image_width = 0;
-    int image_height = 0;
-    int channels = 0;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char* image_data = stbi_load(filename, &image_width, &image_height, &channels, 0);
-    if (image_data == NULL)
-        return false;
 
-    // Create a OpenGL texture identifier
-    GLuint image_texture;
-    glGenTextures(1, &image_texture);
-    glBindTexture(GL_TEXTURE_2D, image_texture);
-
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
-
-    // Upload pixels into texture
-#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_data);
-    stbi_image_free(image_data);
-
-    *out_texture = image_texture;
-    if (out_width != nullptr && out_height != nullptr)
-    {
-        *out_width = image_width;
-        *out_height = image_height;
-    }
-    std::cout << "[Utils::Load Texture From File] Successful!" << std::endl;
-    return true;
-}
 
 PanoLayer::PanoLayer() {}
 
 void PanoLayer::OnAttach()
 {
-	LoadTextureFromFile("assets/test_data/pano_orig/color.jpg", &m_left_image, &m_image_width, &m_image_height);
-	LoadTextureFromFile("assets/test_data/pano_T(0,0_5,0)/color.jpg", &m_right_image, &m_image_width, &m_image_height);
+	
 }
 
 void PanoLayer::OnUIRender()
@@ -68,8 +29,11 @@ void PanoLayer::OnUIRender()
     ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
     m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-    ImGui::Image((ImTextureID)m_left_image, ImVec2{ (float)m_image_width, (float)m_image_height }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
-    ImGui::Image((ImTextureID)m_right_image, ImVec2{ (float)m_image_width, (float)m_image_height }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+    auto& left_image = ToolLayer::s_FileManager.GetPano01Texture();
+    auto& right_image = ToolLayer::s_FileManager.GetPano02Texture();
+
+    ImGui::Image((ImTextureID)left_image.texID, ImVec2{ (float)left_image.width, (float)left_image.height }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+    ImGui::Image((ImTextureID)right_image.texID, ImVec2{ (float)right_image.width, (float)right_image.height }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     static float sz = 30.0f;

@@ -6,11 +6,16 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <filesystem>
 #include <ctime>
 #include "Solver.h"
+#include "Utils/WindowsPlatformUtils.h"
+#include <glm/gtx/string_cast.hpp>
 
 const unsigned int IMG_WIDTH = 1024;
 const unsigned int IMG_HEIGHT = 512;
+
+namespace fs = std::filesystem;
 
 // Make the UI compact because there are so many fields
 static void PushStyleCompact()
@@ -25,22 +30,26 @@ static void PopStyleCompact()
 	ImGui::PopStyleVar(2);
 }
 
-ToolLayer::ToolLayer() : m_pano01_depth(IMG_WIDTH * IMG_HEIGHT)
+ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 {
 	srand(time(0));
 
-	// read depth txt
-	std::ifstream file("assets/txt/pano01_pos_depth.txt");
+	// read pos txt
+	std::ifstream file("assets/ground_truth/pano_ori_pos_gt.txt");
 	std::string str;
 	unsigned int ind = 0;
 	while (std::getline(file, str))
 	{
 		std::istringstream iss(str);
-		float depth_value;
-		iss >> depth_value;
-		m_pano01_depth[ind] = depth_value;
+		glm::vec3 pos;
+		iss >> pos.x >> pos.y >> pos.z;
+		m_PanoPos_gt[ind] = pos;
 		ind++;
 	}
+
+	// set default filepath for test quickly
+	s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
+	s_FileManager.SetPano02Filepath("assets/test_data/pano_T(0,0_5,0)");
 }
 
 void ToolLayer::OnUIRender()
@@ -49,17 +58,78 @@ void ToolLayer::OnUIRender()
 	ImGui::Begin("Tool");
 
 	unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
-	ImGui::Text("Depth : %f", m_pano01_depth[ind]);
+	ImGui::Text("Position : %f %f %f", m_PanoPos_gt[ind].x, m_PanoPos_gt[ind].y, m_PanoPos_gt[ind].z);
 	ImGui::Text("Left Pixel X: %f  Y: %f", PanoLayer::s_left_pixel.x, PanoLayer::s_left_pixel.y);
 	ImGui::Text("Right Pixel X: %f  Y: %f", PanoLayer::s_right_pixel.x, PanoLayer::s_right_pixel.y);
 
-	
+	// File Open
+	{
+		char buffer[2][256];
+		memset(buffer, 0, sizeof(buffer));
+		std::strncpy(buffer[0], s_FileManager.GetPano01Filepath().filename().string().c_str(), sizeof(buffer[0]));
+		std::strncpy(buffer[1], s_FileManager.GetPano02Filepath().filename().string().c_str(), sizeof(buffer[1]));
+		
+		// Pano 01
+		ImGui::InputTextWithHint("Pano01", "open / drag and drop folder here...", buffer[0], sizeof(buffer[0]), ImGuiInputTextFlags_ReadOnly);
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("FILES"))
+			{
+				fs::path filepath((const char*)payload->Data);
+				if (fs::is_directory(filepath)) // only accept folder
+				{
+					s_FileManager.SetPano01Filepath(filepath);
+					s_MatchPoints.ClearPixel();
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Open..."))
+		{
+			std::wstring filepath = FileDialogs::OpenFolder();
+			if (!filepath.empty())
+			{
+				s_FileManager.SetPano01Filepath(filepath); // set and load texture
+				s_MatchPoints.ClearPixel();
+			}
+		}
+
+		// Pano 02
+		ImGui::InputTextWithHint("Pano02", "open / drag and drop folder here...", buffer[1], sizeof(buffer[1]), ImGuiInputTextFlags_ReadOnly);
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("FILES"))
+			{
+				fs::path filepath((const char*)payload->Data);
+				if (fs::is_directory(filepath))
+				{
+					s_FileManager.SetPano02Filepath(filepath);
+					s_MatchPoints.ClearPixel();
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+		ImGui::SameLine();
+		ImGui::PushID(1); // avoid imgui same name issue
+		if (ImGui::Button("Open..."))
+		{
+			//std::string filepath = FileDialogs::OpenFile("JPG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0");
+			std::wstring filepath = FileDialogs::OpenFolder();
+			if (!filepath.empty())
+			{
+				s_FileManager.SetPano02Filepath(filepath);
+				s_MatchPoints.ClearPixel();
+			}
+		}
+		ImGui::PopID();
+	}
+
 	if (ImGui::Button("Match"))
 	{
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
-		m_match_depth.push_back(m_pano01_depth[ind]);
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100); // user pick weight = 100
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, m_PanoPos_gt[ind]); // user pick weight = 100
 	}
 
 	// match table
@@ -73,39 +143,37 @@ void ToolLayer::OnUIRender()
 		// When using ScrollX or ScrollY we need to specify a size for our table container!
 		// Otherwise by default the table will fit all available space, like a BeginChild() call.
 		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 9);
-		if (ImGui::BeginTable("Matching points", 5, flags, outer_size))
+		if (ImGui::BeginTable("Matching points", 4, flags, outer_size))
 		{
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
 			ImGui::TableSetupColumn("Match #", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("pano_01", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("pano_02", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("depth", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("weight", ImGuiTableColumnFlags_None);
+			ImGui::TableSetupColumn("Pano_01", ImGuiTableColumnFlags_None);
+			ImGui::TableSetupColumn("Pano_02", ImGuiTableColumnFlags_None);
+			ImGui::TableSetupColumn("Position_groundtruth", ImGuiTableColumnFlags_None);
 			ImGui::TableHeadersRow();
 
 			for (int row = 0; row < s_MatchPoints.size(); ++row)
 			{
 				ImGui::TableNextRow();
-				for (int column = 0; column < 5; column++)
+				auto& L = s_MatchPoints.left_pixels[row];
+				auto& R = s_MatchPoints.right_pixels[row];
+				auto& p = s_MatchPoints.positions[row];
+				for (int column = 0; column < 4; column++)
 				{
 					ImGui::TableSetColumnIndex(column);
-
 					switch (column)
 					{
 					case 0:
 						ImGui::Text("Match %d", row);
 						break;
 					case 1:
-						ImGui::Text("(%d, %d)", (int)s_MatchPoints.left_pixels[row].x, (int)s_MatchPoints.left_pixels[row].y);
+						ImGui::Text("(%d, %d)", (int)L.x, (int)L.y);
 						break;
 					case 2:
-						ImGui::Text("(%d, %d)", (int)s_MatchPoints.right_pixels[row].x, (int)s_MatchPoints.right_pixels[row].y);
+						ImGui::Text("(%d, %d)", (int)R.x, (int)R.y);
 						break;
 					case 3:
-						ImGui::Text("%f", m_match_depth[row]);
-						break;
-					case 4:
-						ImGui::Text("%u", s_MatchPoints.weights[row]);
+						ImGui::Text("(%f, %f, %f)", p.x, p.y, p.z);
 						break;
 					default:
 						ImGui::Text("Hello %d,%d", column, row);
@@ -121,31 +189,40 @@ void ToolLayer::OnUIRender()
 	// Load LED2-Net corners
 	if (ImGui::Button("Load Corner"))
 	{
-		std::ifstream file("assets/test_data/pano_orig/pred_corner_XY.txt");
-		std::ifstream file2("assets/test_data/pano_T(0,0_5,0)/pred_corner_XY.txt");
-		//std::ifstream file2("pano_neg_PI_pred_corner_XY.txt");
-		std::string str, str2;
-		unsigned int cnt = 0;
-		while (std::getline(file, str) && std::getline(file2, str2))
+		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / "pred_corner_XY.txt";
+		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / "pred_corner_XY.txt";
+		if (corner_path01.empty() || corner_path02.empty())
 		{
-			// read pano01 corner pixels
-			std::istringstream iss(str);
-			glm::vec2 corner_pixel;
-			iss >> corner_pixel.x >> corner_pixel.y;
-
-			// read pano02 corner pixels
-			std::istringstream iss2(str2);
-			glm::vec2 corner_pixel2;
-			iss2 >> corner_pixel2.x >> corner_pixel2.y;
-
-			// depth ground trugh from 3D scene
-			unsigned int ind = corner_pixel.y * IMG_WIDTH + corner_pixel.x;
-			std::cout << ind << std::endl;
-			m_match_depth.push_back(m_pano01_depth[ind]);
-			const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-			s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10); // LED2Net weight = 10
-			++cnt;
+			std::cout << "Please Upload two panoramic images!\n";
 		}
+		else
+		{
+			s_MatchPoints.ClearPixel();
+			std::ifstream file(corner_path01);
+			std::ifstream file2(corner_path02);
+
+			std::string str, str2;
+			unsigned int cnt = 0;
+			while (std::getline(file, str) && std::getline(file2, str2))
+			{
+				// read pano01 corner pixels
+				std::istringstream iss(str);
+				glm::vec2 corner_pixel;
+				iss >> corner_pixel.x >> corner_pixel.y;
+
+				// read pano02 corner pixels
+				std::istringstream iss2(str2);
+				glm::vec2 corner_pixel2;
+				iss2 >> corner_pixel2.x >> corner_pixel2.y;
+
+				// depth ground trugh from 3D scene
+				unsigned int ind = corner_pixel.y * IMG_WIDTH + corner_pixel.x;
+				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind]); // LED2Net weight = 10
+				++cnt;
+			}
+		}
+		
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Rotate Matching")) // Rotate right image corner for correct matching
@@ -153,43 +230,54 @@ void ToolLayer::OnUIRender()
 		s_MatchPoints.RotateRightPixels();
 	}
 
-	if (ImGui::Button("Save Match points")) // Save current matching points
+	// Save/Load temporary matching points
 	{
-		std::ofstream file;
-		file.open("assets/txt/matching.txt");
-		auto& left = s_MatchPoints.left_pixels;
-		auto& right = s_MatchPoints.right_pixels;
-		auto& weights = s_MatchPoints.weights;
-		for (int i = 0; i < s_MatchPoints.size(); ++i)
+		if (ImGui::Button("Save Match points")) // Save current matching points
 		{
-			file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << m_match_depth[i] << " " << weights[i] << "\n";
+			std::ofstream file;
+			file.open("assets/temp_matching.txt");
+			auto& left = s_MatchPoints.left_pixels;
+			auto& right = s_MatchPoints.right_pixels;
+			auto& weights = s_MatchPoints.weights;
+			auto& positions = s_MatchPoints.positions;
+			for (int i = 0; i < s_MatchPoints.size(); ++i)
+			{
+				file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << weights[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+			}
 		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Load Match points")) // Load matching points from txt file
-	{
-		std::ifstream file;
-		file.open("assets/txt/matching.txt");
-		std::string str;
-		glm::vec2 left, right;
-		float depth;
-		uint32_t weight;
-		while (std::getline(file, str))
+		ImGui::SameLine();
+		if (ImGui::Button("Load Match points")) // Load matching points from txt file
 		{
-			std::istringstream iss(str);
-			iss >> left.x >> left.y >> right.x >> right.y >> depth >> weight;
-			m_match_depth.push_back(depth);
-			const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-			s_MatchPoints.AddPoint(left, right, col, weight);
+			if (s_MatchPoints.cnt) // clear before load
+			{
+				s_MatchPoints.ClearPixel();
+			}
+			std::ifstream file;
+			file.open("assets/temp_matching.txt");
+			std::string str;
+			glm::vec2 left, right;
+			uint32_t weight;
+			glm::vec3 pos;
+			while (std::getline(file, str))
+			{
+				std::istringstream iss(str);
+				iss >> left.x >> left.y >> right.x >> right.y >> weight >> pos.x >> pos.y >> pos.z;
+				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+				s_MatchPoints.AddPoint(left, right, col, weight, pos);
+			}
+			std::cout << "Read match points : " << s_MatchPoints.size() << std::endl;
 		}
-		std::cout << "Read match points : " << s_MatchPoints.size() << std::endl;
 	}
 
 	if (ImGui::Button("Calculate Relative Pose") && s_MatchPoints.size() >= 8) // Solver
 	{
-		RelativePoseSolver::Solve("assets/test_data/pano_orig/color.jpg", "assets/test_data/pano_T(0,0_5,0)/color.jpg", s_MatchPoints.left_pixels, s_MatchPoints.right_pixels, m_match_depth, s_MatchPoints.weights);
+		std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
+		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints);
 	}
 
 }
 
+// static member initialization
 MatchPoints ToolLayer::s_MatchPoints;
+FileManager ToolLayer::s_FileManager;

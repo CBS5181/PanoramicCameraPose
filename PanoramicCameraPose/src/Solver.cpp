@@ -19,8 +19,6 @@
 #include "openMVG/sfm/sfm_data.hpp"
 #include "openMVG/sfm/sfm_data_BA_ceres.hpp"
 #include "openMVG/sfm/sfm_data_io.hpp"
-#include "openMVG/multiview/solver_essential_three_point.hpp"
-
 
 using namespace openMVG;
 using namespace openMVG::cameras;
@@ -31,7 +29,7 @@ using namespace openMVG::robust;
 using namespace openMVG::sfm;
 
 
-void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::vector<glm::vec2>& L, const std::vector<glm::vec2>& R, const std::vector<float>& depth_gt, std::vector<uint32_t> weights)
+void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, const MatchPoints& match_points)
 {
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
@@ -45,6 +43,9 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
     using namespace openMVG::features;
     PointFeatures featureL, featureR;
+
+    auto& L = match_points.left_pixels;
+    auto& R = match_points.right_pixels;
 
     for (size_t i = 0; i < L.size(); ++i)
     {
@@ -105,10 +106,13 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         const Mat xL_spherical = cameraL(xL),
             xR_spherical = cameraR(xR);
 
+        // original ACRANSAC Eigth Point Algorithm
+        
         //-- Essential matrix robust estimation from spherical bearing vectors
-
+        /*
         std::vector<uint32_t> vec_inliers;
 
+        
         // Define the AContrario angular error adaptor
         using KernelType =
             openMVG::robust::ACKernelAdaptor_AngularRadianError<
@@ -125,8 +129,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         const double precision = std::numeric_limits<double>::infinity(); // infinity() for weighted sample // D2R(4.0); 0.0698132  // 
         std::cout << "precision" << precision << std::endl;
         //const std::pair<double, double> ACRansacOut =
-        //   ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
-        const std::pair<double, double> ACRansacOut = Weighted_ACRANSAC(kernel, vec_inliers, weights, 1024, &E, precision, true);
+        //  ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
+        const std::pair<double, double> ACRansacOut = Weighted_ACRANSAC(kernel, vec_inliers, match_points.weights, 1024, &E, precision, true);
         const double& threshold = ACRansacOut.first;
 
         std::cout << "\n Angular threshold found: " << R2D(threshold) << "(Degree)" << std::endl;
@@ -146,7 +150,14 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             "04_inliers.svg",
             bVertical
         );
+        */
+        
+        std::vector<uint32_t> vec_inliers(L.size());
+        std::iota(vec_inliers.begin(), vec_inliers.end(), 0);
 
+        // Pure Eigth Point Algorithm
+        std::vector<Mat3> Es;
+        openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
 
         // Decompose the essential matrix and keep the best solution (if any)
         geometry::Pose3 relative_pose;
@@ -154,10 +165,11 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         std::vector<Vec3> inliers_X;
         RelativePoseFromEssential(xL_spherical,
             xR_spherical,
-            E, vec_inliers,
+            Es[0], vec_inliers,
             &relative_pose,
             &inliers_indexes,
             &inliers_X);
+
         if (true)
         {
             // Lets make a BA on the scene to check if it relative pose and structure can be refined
@@ -193,34 +205,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 landmark.obs[tiny_scene.views[0]->id_view] = Observation(xL.col(inliers_indexes[i]), 0);
                 landmark.obs[tiny_scene.views[1]->id_view] = Observation(xR.col(inliers_indexes[i]), 0);
                 tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
-
-                //std::cout << inliers_X[i].norm() << std::endl;
-                 /*
-                // ratio from depth ground truth
-                std::cout << "Observation : " << landmark.obs[tiny_scene.views[0]->id_view].x.x() << ", " << landmark.obs[tiny_scene.views[0]->id_view].x.y() << std::endl;
-
-                //std::cout << "3D point: " << inliers_X[i].x() << " " << inliers_X[i].y() << " " << inliers_X[i].z() << std::endl << std::endl;
-
-                std::cout << "Match " << inliers_indexes[i] << " MVG: " << inliers_X[i].norm() << "\tgt: " << depth_gt[inliers_indexes[i]] << "\tratio: " << inliers_X[i].norm() / depth_gt[inliers_indexes[i]] << std::endl << std::endl;
-
-                ratio += inliers_X[i].norm() / depth_gt[inliers_indexes[i]];
-               */
-
-                if (inliers_indexes[i] > 3 && inliers_indexes[i] < 8) // floor
-                {
-                    std::cout << "index : " << inliers_indexes[i] << " height : " << inliers_X[i].y() << std::endl;
-                    center_to_floor += inliers_X[i].y();
-                    ++cnt;
-                }
-
             }
-            float avg_height = center_to_floor / cnt;
-            std::cout << "average height from floor corner : " << avg_height << std::endl;
-            ratio = camera_height / avg_height;
-            //ratio /= inliers_indexes.size();
-            std::cout << "average ratio : " << ratio << std::endl;
-            Eigen::Vector3d T = relative_pose.translation() * ratio;
-            std::cout << "T: " << std::endl << T << std::endl;
+            // TODO: scale and compare with ground truth.
         }
     }
 }

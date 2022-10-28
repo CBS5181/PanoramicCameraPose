@@ -20,9 +20,13 @@ bool canMouseRotate = false;
 float lastX = 512.0;
 float lastY = 256.0;
 
+Application* Application::s_Instance = nullptr;
+
 Application::Application(const ApplicationSpecification& applicationSpecification)
 	: m_Specification(applicationSpecification)
 {
+	assert(!s_Instance); // Application already exists!
+	s_Instance = this;
 	Init();
 }
 
@@ -178,6 +182,7 @@ void Application::Init()
 	glfwSetCursorPosCallback(m_WindowHandle, mouse_callback);
 	glfwSetScrollCallback(m_WindowHandle, scroll_callback);
 	glfwSetKeyCallback(m_WindowHandle, key_press_callback);
+	glfwSetDropCallback(m_WindowHandle, drop_callback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -328,3 +333,17 @@ void Application::key_press_callback(GLFWwindow* window, int key, int scancode, 
 	//scene.KeyPressCallback(window, key, scancode, action, mods);
 	//Input::KeyCallback(window, key, scancode, action, mods);
 }
+
+void Application::drop_callback(GLFWwindow* window, int count, const char** paths)
+{
+
+	for (int i = 0; i < count; ++i)
+	{
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
+		{
+			ImGui::SetDragDropPayload("FILES", paths[i], strlen(paths[i]) + 1);
+			ImGui::EndDragDropSource();
+		}
+	}
+}
+	
