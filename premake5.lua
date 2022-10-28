@@ -29,7 +29,7 @@ project "PanoramicCameraPose"
 
     includedirs
     {
-        "src",
+        "%{prj.name}/src",
         "%{prj.name}/vendor/Glad/include",
         "%{prj.name}/vendor/glfw/include",
         "%{prj.name}/vendor/glm/include",
