@@ -165,7 +165,13 @@ void Application::Init()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 
-
+	//maximize window?
+	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	if (mode)
+	{
+		m_Specification.Width = mode->width;
+		m_Specification.Height = mode->height;
+	}
 
 	// Open the window
 	m_WindowHandle = glfwCreateWindow(m_Specification.Width, m_Specification.Height, m_Specification.Name.c_str(), NULL, NULL);
