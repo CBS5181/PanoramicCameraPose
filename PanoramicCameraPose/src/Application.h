@@ -31,10 +31,13 @@ public:
 	void PushLayer(const std::shared_ptr<Layer>& layer) { m_LayerStack.emplace_back(layer); layer->OnAttach(); }
 	static Application& Get() { return *s_Instance; }
 	GLFWwindow* GetWindow() { return m_WindowHandle; }
+	unsigned int GetWindowWidth() const { return m_Data.Width; }
+	unsigned int GetWindowHeight() const { return m_Data.Height; }
 	const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 	void Close();
 
 
+	static void window_resize_callback(GLFWwindow* window, int width, int height);
 	static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 	static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
@@ -51,9 +54,16 @@ private:
 	ApplicationSpecification m_Specification;
 	GLFWwindow* m_WindowHandle = nullptr;
 	bool m_Running = false;
-
 	std::function<void()> m_MenubarCallback;
 	std::vector<std::shared_ptr<Layer>> m_LayerStack;
 private:
 	static Application* s_Instance;
+
+	struct WindowData
+	{
+		std::string Title;
+		unsigned int Width, Height;
+	};
+
+	WindowData m_Data;
 };

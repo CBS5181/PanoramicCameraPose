@@ -79,7 +79,6 @@ void Application::Run()
 			window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
 
-
 			// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
 			// and handle the pass-thru hole, so we ask Begin() to not render a background.
 			if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
@@ -162,16 +161,16 @@ void Application::Init()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 
-	//maximize window?
-	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	if (mode)
-	{
-		m_Specification.Width = mode->width;
-		m_Specification.Height = mode->height;
-	}
+	////maximize window?
+	//const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	//if (mode)
+	//{
+	//	m_Specification.Width = mode->width;
+	//	m_Specification.Height = mode->height;
+	//}
 
 	// Open the window
 	m_WindowHandle = glfwCreateWindow(m_Specification.Width, m_Specification.Height, m_Specification.Name.c_str(), NULL, NULL);
@@ -183,7 +182,10 @@ void Application::Init()
 	}
 	glfwMakeContextCurrent(m_WindowHandle);
 
-	glfwSetFramebufferSizeCallback(m_WindowHandle, framebuffer_size_callback);
+	glfwSetWindowUserPointer(m_WindowHandle, &m_Data);
+
+	glfwSetWindowSizeCallback(m_WindowHandle, window_resize_callback);
+	//glfwSetFramebufferSizeCallback(m_WindowHandle, framebuffer_size_callback);
 	glfwSetMouseButtonCallback(m_WindowHandle, mouse_button_callback);
 	glfwSetCursorPosCallback(m_WindowHandle, mouse_callback);
 	glfwSetScrollCallback(m_WindowHandle, scroll_callback);
@@ -221,9 +223,10 @@ void Application::Init()
 	//io.ConfigViewportsNoAutoMerge = true;
 	//io.ConfigViewportsNoTaskBarIcon = true;
 
-	float fontSize = 24.0f;
+	float fontSize = 28.0f;
 	io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Bold.ttf", fontSize);
 	io.FontDefault = io.Fonts->AddFontFromFileTTF("assets/fonts/opensans/OpenSans-Regular.ttf", fontSize);
+	io.FontAllowUserScaling = true;
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -250,6 +253,15 @@ void Application::Shutdown()
 	m_LayerStack.clear();
 
 }
+
+void Application::window_resize_callback(GLFWwindow* window, int width, int height)
+{
+	WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+	data.Width = width;
+	data.Height = height;
+	glViewport(0, 0, width, height);
+}
+
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
