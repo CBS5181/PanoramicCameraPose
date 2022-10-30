@@ -36,7 +36,8 @@ project "PanoramicCameraPose"
         "%{prj.name}/vendor/imgui/include",
         "%{prj.name}/vendor/eigen",
         "%{prj.name}/vendor/stb_image",
-        "%{prj.name}/vendor/openMVG/include"
+        "%{prj.name}/vendor/openMVG/include",
+        "C:/gurobi950/win64/include"
     }
 
     filter "system:windows"
@@ -71,7 +72,8 @@ project "PanoramicCameraPose"
 		libdirs
 		{
 			"%{prj.name}/vendor/OpenMVG/lib/Release",
-			"%{prj.name}/vendor/glfw/lib/Release"
+			"%{prj.name}/vendor/glfw/lib/Release",
+            "C:/gurobi950/win64/lib"
 		}
 		
         links
@@ -91,7 +93,9 @@ project "PanoramicCameraPose"
             "jpeg.lib", 
             "libpng16.lib",
             "tiff.lib",
-            "zlib.lib"
+            "zlib.lib",
+            "gurobi95.lib",
+            "gurobi_c++md2019.lib"
         }
 		
 		postbuildcommands 

@@ -20,6 +20,8 @@
 #include "openMVG/sfm/sfm_data_BA_ceres.hpp"
 #include "openMVG/sfm/sfm_data_io.hpp"
 
+#include "gurobi_c++.h"
+
 using namespace openMVG;
 using namespace openMVG::cameras;
 using namespace openMVG::geometry;
@@ -159,6 +161,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         std::vector<Mat3> Es;
         openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
 
+        //solve essential matrix by Gurobi?
+
         // Decompose the essential matrix and keep the best solution (if any)
         geometry::Pose3 relative_pose;
         std::vector<uint32_t> inliers_indexes;
@@ -209,4 +213,18 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             // TODO: scale and compare with ground truth.
         }
     }
+}
+
+void RelativePoseSolver::SolveEssentialMatrixGurobi(
+    const Mat3X& x1,
+    const Mat3X& x2,
+    std::vector<Mat3>* pvec_E)
+{
+    assert(x1.rows() == x2.rows());
+    assert(x1.cols() == x2.cols());
+
+    GRBEnv env = GRBEnv();
+    GRBModel model = GRBModel(env);
+
+    
 }
