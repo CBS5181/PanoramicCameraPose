@@ -15,6 +15,8 @@ public:
 	static bool isMouseButtonLeftClick;
 
 private:
-	glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
+	glm::vec2 m_ViewportSize = { 1024.0f, 512.0f };
 	glm::vec2 m_ViewportBounds[2] = {};
+	glm::vec3 m_left_mouse_pixel, m_right_mouse_pixel;
+	float m_ratio = 1.0f;
 };
