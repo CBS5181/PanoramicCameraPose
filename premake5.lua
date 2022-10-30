@@ -13,6 +13,7 @@ project "PanoramicCameraPose"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++17"
+	staticruntime "off" -- for multithread-specific and DLL-specific version of the run-time library
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
@@ -36,7 +37,8 @@ project "PanoramicCameraPose"
         "%{prj.name}/vendor/imgui/include",
         "%{prj.name}/vendor/eigen",
         "%{prj.name}/vendor/stb_image",
-        "%{prj.name}/vendor/openMVG/include"
+        "%{prj.name}/vendor/openMVG/include",
+		"C:/gurobi952/win64/include"
     }
 
     filter "system:windows"
@@ -71,7 +73,8 @@ project "PanoramicCameraPose"
 		libdirs
 		{
 			"%{prj.name}/vendor/OpenMVG/lib/Release",
-			"%{prj.name}/vendor/glfw/lib/Release"
+			"%{prj.name}/vendor/glfw/lib/Release",
+			"C:/gurobi952/win64/lib"
 		}
 		
         links
@@ -91,7 +94,9 @@ project "PanoramicCameraPose"
             "jpeg.lib", 
             "libpng16.lib",
             "tiff.lib",
-            "zlib.lib"
+            "zlib.lib",
+			"gurobi95.lib",
+			"gurobi_c++md2019.lib"
         }
 		
 		postbuildcommands 
