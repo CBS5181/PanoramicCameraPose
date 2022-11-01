@@ -31,7 +31,8 @@ using namespace openMVG::robust;
 using namespace openMVG::sfm;
 
 
-void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, const MatchPoints& match_points)
+void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
+    const MatchPoints& match_points, int method)
 {
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
@@ -157,11 +158,20 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         std::vector<uint32_t> vec_inliers(L.size());
         std::iota(vec_inliers.begin(), vec_inliers.end(), 0);
 
-        // Pure Eigth Point Algorithm
+        //solve essential matrix E:
         std::vector<Mat3> Es;
-        openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
+        if (method == 0)
+        {
+            //Pure Eigth Point Algorithm
+            openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
+        }
+        else if (method == 1)
+        {
+            //solve essential matrix by Gurobi?
+            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, &Es);
+        }
 
-        //solve essential matrix by Gurobi?
+        std::cout << "solved essential matrix:" << std::endl << Es[0] << std::endl;
 
         // Decompose the essential matrix and keep the best solution (if any)
         geometry::Pose3 relative_pose;
@@ -215,7 +225,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
     }
 }
 
-void RelativePoseSolver::SolveEssentialMatrixGurobi(
+bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     const Mat3X& x1,
     const Mat3X& x2,
     std::vector<Mat3>* pvec_E)
@@ -226,5 +236,84 @@ void RelativePoseSolver::SolveEssentialMatrixGurobi(
     GRBEnv env = GRBEnv();
     GRBModel model = GRBModel(env);
 
-    
+    try
+    {
+        //variables: 9 entries in E, row major
+        std::vector<GRBVar> vars;
+        for (int i = 0; i < 9; i++)
+        {
+            vars.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //boolean flags for relaxing certain ("outlier") matchings?
+
+        model.update();
+
+        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is vector form of E)
+        GRBQuadExpr obj;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::vector<float> row;
+            row.push_back(x1(0, i) * x2(0, i));
+            row.push_back(x1(1, i) * x2(0, i));
+            row.push_back(x1(2, i) * x2(0, i));
+            row.push_back(x1(0, i) * x2(1, i));
+            row.push_back(x1(1, i) * x2(1, i));
+            row.push_back(x1(2, i) * x2(1, i));
+            row.push_back(x1(0, i) * x2(2, i));
+            row.push_back(x1(1, i) * x2(2, i));
+            row.push_back(x1(2, i) * x2(2, i));
+
+            GRBLinExpr term;
+            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+            {
+                term += row[j] * vars[j];
+            }
+
+            obj += term * term;
+        }
+        model.setObjective(obj);  //to minimize
+
+        //constraint: e vector is unit vector
+        {
+            GRBQuadExpr term;
+            for (int j = 0; j < 9; j++)
+            {
+                term += vars[j] * vars[j];
+            }
+
+            model.addQConstr(term == 1);
+        }
+
+        //solve!
+        model.set(GRB_IntParam_NonConvex, 2);
+
+        model.optimize();
+        int status = model.get(GRB_IntAttr_Status);
+        if (status == 3)
+        {
+            //infeasible
+            std::cout << "[SolveEssentialMatrixGurobi] the problem is infeasible." << std::endl;
+            return false;
+        }
+        else if (status != 9/*time-out*/ && status != 2 && status != 11 && status != 13)
+        {
+            //some other failure
+            std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
+            return false;
+        }
+
+        //get results
+        Mat3 E;
+        for (int i = 0; i < 9; i++)
+        {
+            E(i / 3, i % 3) = vars[i].get(GRB_DoubleAttr_X);
+        }
+
+        pvec_E->emplace_back(E);
+    }
+    catch (GRBException e)
+    {
+        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
+    }
 }

@@ -269,13 +269,17 @@ void ToolLayer::OnUIRender()
 		}
 	}
 
-	if (ImGui::Button("Calculate Relative Pose") && s_MatchPoints.size() >= 8) // Solver
+	if (ImGui::Button("Calculate Relative Pose"))
 	{
 		std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
 		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
-		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints);
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints, s_SolveMethod);
 	}
 
+	if (ImGui::Combo("Solve Method", &s_SolveMethod, "8-point method\0Gurobi\0"))
+	{
+
+	}
 }
 
 // static member initialization
