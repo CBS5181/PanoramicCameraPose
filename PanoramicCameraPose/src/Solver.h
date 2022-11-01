@@ -2,10 +2,13 @@
 #include <vector>
 #include "glm/glm.hpp"
 #include "MatchPoints.h"
-
 #include "openMVG/numeric/eigen_alias_definition.hpp"
 
-class MatchPoints;
+class SIFTSolver
+{
+public:
+	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::vector<glm::vec3>& pos_gt, MatchPoints& match_points);
+};
 
 class RelativePoseSolver
 {
@@ -21,5 +24,4 @@ public:
 		const openMVG::Mat3X& x1,
 		const openMVG::Mat3X& x2,
 		std::vector<openMVG::Mat3>* pvec_E);
-
 };
