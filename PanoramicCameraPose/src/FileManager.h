@@ -20,9 +20,7 @@ public:
 
 	const Texture& GetPano01Texture() const { return m_pano01_tex; }
 	const Texture& GetPano02Texture() const { return m_pano02_tex; }
-private:
-
-	bool LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height);
+	static bool LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height);
 
 private:
 	std::filesystem::path m_pano01_path;

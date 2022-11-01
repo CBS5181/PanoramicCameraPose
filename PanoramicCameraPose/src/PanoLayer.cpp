@@ -4,13 +4,38 @@
 #include "imgui/imgui.h"
 #include <iostream>
 
+static GLuint aim_tex = 0;
+static int aim_w = 0;
+static int aim_h = 0;
 
+static void SetImGuiTooltip(const ImTextureID tex_id, const ImVec2& pos, ImGuiIO& io, float tex_w, float tex_h)
+{
+    ImVec4 tint_col = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);   // No tint
+    ImVec4 border_col = ImVec4(1.0f, 1.0f, 1.0f, 0.5f); // 50% opaque white
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        float region_sz = 25.0f;
+        float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
+        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+        float zoom = 3.0f;
+        if (region_x < 0.0f) { region_x = 0.0f; }
+        else if (region_x > tex_w - region_sz) { region_x = tex_w - region_sz; }
+        if (region_y < 0.0f) { region_y = 0.0f; }
+        else if (region_y > tex_h - region_sz) { region_y = tex_h - region_sz; }
+        ImVec2 uv0 = ImVec2((region_x) / tex_w, region_y / tex_h);
+        ImVec2 uv1 = ImVec2((region_x + region_sz) / tex_w, (region_y + region_sz) / tex_h);
+        ImGui::Image(tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, tint_col, border_col);
+        ImGui::GetWindowDrawList()->AddImage((ImTextureID)aim_tex, ImGui::GetItemRectMin(), ImGui::GetItemRectMax()); // render aim icon on the image item rect position
+        ImGui::EndTooltip();
+    }
+}
 
 PanoLayer::PanoLayer() {}
 
 void PanoLayer::OnAttach()
 {
-	
+    FileManager::LoadTextureFromFile("assets/img/aim.png", &aim_tex, &aim_w, &aim_h);
 }
 
 void PanoLayer::OnUIRender()
@@ -19,7 +44,7 @@ void PanoLayer::OnUIRender()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
     ImGui::Begin("Viewport 01", NULL); // ImGuiWindowFlags_NoScrollbar?
-
+    ImGuiIO& io = ImGui::GetIO();
     auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
     auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
     
@@ -38,8 +63,16 @@ void PanoLayer::OnUIRender()
         m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
     }
 
-    ImGui::Image((ImTextureID)left_image.texID, ImVec2{ (float)left_image.width * m_ratio, (float)left_image.height * m_ratio }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
-    ImGui::Image((ImTextureID)right_image.texID, ImVec2{ (float)right_image.width * m_ratio, (float)right_image.height * m_ratio }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+    ImTextureID my_left_tex_id = (ImTextureID)left_image.texID;
+    ImTextureID my_right_tex_id = (ImTextureID)right_image.texID;
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    float my_tex_w = (float)left_image.width * m_ratio;
+    float my_tex_h = (float)left_image.height * m_ratio;
+    
+    ImGui::Image(my_left_tex_id, ImVec2{ my_tex_w, my_tex_h });
+    SetImGuiTooltip(my_left_tex_id, pos, io, my_tex_w, my_tex_h);
+    ImGui::Image(my_right_tex_id, ImVec2{ my_tex_w, my_tex_h });
+    SetImGuiTooltip(my_right_tex_id, ImVec2{ pos.x, pos.y + my_tex_h }, io, my_tex_w, my_tex_h);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     static float sz = 30.0f;
