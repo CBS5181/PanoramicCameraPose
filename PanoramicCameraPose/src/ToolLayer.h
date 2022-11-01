@@ -13,6 +13,7 @@ public:
 	virtual void OnUIRender() override;
 	static MatchPoints s_MatchPoints;
 	static FileManager s_FileManager;
+	
 private:
 	std::vector<glm::vec3> m_PanoPos_gt;
 	int match_ind = 0;
