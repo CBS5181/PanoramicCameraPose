@@ -175,18 +175,24 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
         //solve essential matrix E:
         std::vector<Mat3> Es;
-        if (method == 0)
+        if (method == 0)  //Pure Eigth Point Algorithm            
         {
-            //Pure Eigth Point Algorithm
             openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
         }
-        else if (method == 1)
-        {
-            //solve essential matrix by Gurobi?
+        else if (method == 1)  //solve essential matrix by Gurobi?
+        {            
             SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, &Es);
         }
 
-        std::cout << "solved essential matrix:" << std::endl << Es[0] << std::endl;
+        std::cout << "Solved essential matrix:" << std::endl << Es[0] << std::endl;
+        //report essential matrix equation errors
+        std::cout << "Essential matrix equation residuals:" << std::endl;
+        for (int i = 0; i < xL_spherical.cols(); i++)
+        {
+            Eigen::Vector3d x1 = xL_spherical.col(i);
+            Eigen::Vector3d x2 = xR_spherical.col(i);
+            std::cout << x2.transpose() * Es[0] * x1 << std::endl;
+        }
 
         // Decompose the essential matrix and keep the best solution (if any)
         geometry::Pose3 relative_pose;

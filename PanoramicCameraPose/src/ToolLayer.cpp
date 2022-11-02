@@ -144,7 +144,7 @@ void ToolLayer::OnUIRender()
 
 		// When using ScrollX or ScrollY we need to specify a size for our table container!
 		// Otherwise by default the table will fit all available space, like a BeginChild() call.
-		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 9);
+		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 12);
 		if (ImGui::BeginTable("Matching points", 4, flags, outer_size))
 		{
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
@@ -175,7 +175,7 @@ void ToolLayer::OnUIRender()
 						ImGui::Text("(%d, %d)", (int)R.x, (int)R.y);
 						break;
 					case 3:
-						ImGui::Text("(%f, %f, %f)", p.x, p.y, p.z);
+						ImGui::Text("(%.4f, %.4f, %.4f)", p.x, p.y, p.z);
 						break;
 					default:
 						ImGui::Text("Hello %d,%d", column, row);
@@ -189,7 +189,7 @@ void ToolLayer::OnUIRender()
 	}
 
 	// Load LED2-Net corners
-	if (ImGui::Button("Load Corner"))
+	if (ImGui::Button("Load Corners"))
 	{
 		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / "pred_corner_XY.txt";
 		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / "pred_corner_XY.txt";
