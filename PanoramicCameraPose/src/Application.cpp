@@ -184,6 +184,9 @@ void Application::Init()
 
 	glfwSetWindowUserPointer(m_WindowHandle, &m_Data);
 
+	// SetVSync
+	glfwSwapInterval(1);
+
 	glfwSetWindowSizeCallback(m_WindowHandle, window_resize_callback);
 	//glfwSetFramebufferSizeCallback(m_WindowHandle, framebuffer_size_callback);
 	glfwSetMouseButtonCallback(m_WindowHandle, mouse_button_callback);

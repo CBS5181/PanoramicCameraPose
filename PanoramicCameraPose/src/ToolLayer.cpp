@@ -15,6 +15,8 @@
 const unsigned int IMG_WIDTH = 1024;
 const unsigned int IMG_HEIGHT = 512;
 
+extern float deltaTime;
+
 namespace fs = std::filesystem;
 
 // Make the UI compact because there are so many fields
@@ -49,14 +51,14 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 
 	// set default filepath for test quickly
 	s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
-	s_FileManager.SetPano02Filepath("assets/test_data/pano_half_PI_T(0,0_5,0)");
+	s_FileManager.SetPano02Filepath("assets/test_data/pano_R90_T(0,0_5,0)");
 }
 
 void ToolLayer::OnUIRender()
 {
 	const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
 	ImGui::Begin("Tool");
-
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 	ImGui::Text("Position : %f %f %f", m_PanoPos_gt[ind].x, m_PanoPos_gt[ind].y, m_PanoPos_gt[ind].z);
 	ImGui::Text("Left Pixel X: %f  Y: %f", PanoLayer::s_left_pixel.x, PanoLayer::s_left_pixel.y);
@@ -124,7 +126,7 @@ void ToolLayer::OnUIRender()
 		}
 		ImGui::PopID();
 	}
-
+	ImGui::Separator();
 	if (ImGui::Button("Match"))
 	{
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
@@ -268,12 +270,14 @@ void ToolLayer::OnUIRender()
 			std::cout << "Read match points : " << s_MatchPoints.size() << std::endl;
 		}
 	}
-
+	ImGui::Separator();
+	static int method_type = 0; //0: 8-point algorithm, 1:Gurobi
+	const char* solve_methods[] = { "8-point", "Gurobi" };
 	if (ImGui::Button("Calculate Relative Pose"))
 	{
 		std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
 		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
-		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints, s_SolveMethod);
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints, method_type);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SIFT")) // SIFT Solver
@@ -283,11 +287,8 @@ void ToolLayer::OnUIRender()
 		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
 		SIFTSolver::Solve(left_img.c_str(), right_img.c_str(), m_PanoPos_gt, s_MatchPoints);
 	}
-
-	if (ImGui::Combo("Solve Method", &s_SolveMethod, "8-point method\0Gurobi\0"))
-	{
-
-	}
+	ImGui::Separator();
+	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
 }
 
 // static member initialization

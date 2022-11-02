@@ -4,9 +4,80 @@
 #include "imgui/imgui.h"
 #include <iostream>
 
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+
 static GLuint aim_tex = 0;
 static int aim_w = 0;
 static int aim_h = 0;
+
+
+//----------------Temporary functions for rendering imgui drawlist to texture----------------
+// Make FB
+int twice = 2;
+ImVec2 m_fboSize{ 512.0f, 1024.0f };
+GLuint fbo, tex;
+
+// Creates  framebuffer / textures
+void makeFBO(ImVec2 size, GLuint* fbo, GLuint* tex) {
+    glDeleteFramebuffers(1, fbo);
+    GLuint color = 0;
+    GLuint depth = 0;
+    glGenFramebuffers(1, fbo);
+    glGenTextures(1, &color);
+    glGenRenderbuffers(1, &depth);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, size.x, size.y);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+
+    *tex = color;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// Makes draw data for renderer
+ImDrawData makeDrawData(ImDrawList** dl, ImVec2 pos, ImVec2 size) {
+    ImDrawData draw_data = ImDrawData();
+
+    draw_data.Valid = true;
+    draw_data.CmdLists = dl;
+    draw_data.CmdListsCount = 1;
+    draw_data.TotalVtxCount = (*dl)->VtxBuffer.size();
+    draw_data.TotalIdxCount = (*dl)->IdxBuffer.size();
+    draw_data.DisplayPos = pos;
+    draw_data.DisplaySize = size;
+    draw_data.FramebufferScale = ImVec2(1, 1);
+
+    return draw_data;
+}
+
+// Render drawlist using the backend's renderer
+void renderDrawList(GLuint fbo, ImDrawList* dl, ImVec2 pos, ImVec2 size) {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glViewport(0, 0, size.x, size.y);
+    glClearColor(.5f, .5f, .5f, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    ImDrawData dd = makeDrawData(&dl, pos, size);
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplOpenGL3_RenderDrawData(&dd);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+// --------------------------------------------------------------------------------
 
 static void SetImGuiTooltip(const ImTextureID tex_id, const ImVec2& pos, ImGuiIO& io, float tex_w, float tex_h)
 {
@@ -15,16 +86,19 @@ static void SetImGuiTooltip(const ImTextureID tex_id, const ImVec2& pos, ImGuiIO
     if (ImGui::IsItemHovered())
     {
         ImGui::BeginTooltip();
-        float region_sz = 25.0f;
+        float region_sz = 30.0f;
         float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
-        float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+        //float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+        float region_y = tex_h - (io.MousePos.y - pos.y) - region_sz * 0.5f; // flip y
         float zoom = 3.0f;
         if (region_x < 0.0f) { region_x = 0.0f; }
         else if (region_x > tex_w - region_sz) { region_x = tex_w - region_sz; }
         if (region_y < 0.0f) { region_y = 0.0f; }
         else if (region_y > tex_h - region_sz) { region_y = tex_h - region_sz; }
-        ImVec2 uv0 = ImVec2((region_x) / tex_w, region_y / tex_h);
-        ImVec2 uv1 = ImVec2((region_x + region_sz) / tex_w, (region_y + region_sz) / tex_h);
+        //ImVec2 uv0 = ImVec2((region_x) / tex_w, region_y / tex_h);
+        //ImVec2 uv1 = ImVec2((region_x + region_sz) / tex_w, (region_y + region_sz) / tex_h);
+        ImVec2 uv0 = ImVec2((region_x) / tex_w, (region_y + region_sz) / tex_h); // flip y
+        ImVec2 uv1 = ImVec2((region_x + region_sz) / tex_w, (region_y) / tex_h);  // flip y
         ImGui::Image(tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, tint_col, border_col);
         ImGui::GetWindowDrawList()->AddImage((ImTextureID)aim_tex, ImGui::GetItemRectMin(), ImGui::GetItemRectMax()); // render aim icon on the image item rect position
         ImGui::EndTooltip();
@@ -47,20 +121,21 @@ void PanoLayer::OnUIRender()
     ImGuiIO& io = ImGui::GetIO();
     auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
     auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
-    
+
     auto viewportOffset = ImGui::GetWindowPos();
     m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
     m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
-
     
     auto& left_image = ToolLayer::s_FileManager.GetPano01Texture();
     auto& right_image = ToolLayer::s_FileManager.GetPano02Texture();
 
     ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-    if (ImGui::IsAnyItemActive() == false)
+    if (m_ViewportSize.x != viewportPanelSize.x || m_ViewportSize.y != viewportPanelSize.y) // update when viewport resized
     {
-        m_ratio = m_ViewportSize[0] / left_image.width;
         m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
+        m_ratio = m_ViewportSize[0] / left_image.width;
+        m_fboSize = ImVec2((float)left_image.width * m_ratio, (float)left_image.height * m_ratio * 2);
+        makeFBO(m_fboSize, &fbo, &tex);
     }
 
     ImTextureID my_left_tex_id = (ImTextureID)left_image.texID;
@@ -70,9 +145,9 @@ void PanoLayer::OnUIRender()
     float my_tex_h = (float)left_image.height * m_ratio;
     
     ImGui::Image(my_left_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    SetImGuiTooltip(my_left_tex_id, pos, io, my_tex_w, my_tex_h);
+    SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
     ImGui::Image(my_right_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    SetImGuiTooltip(my_right_tex_id, ImVec2{ pos.x, pos.y + my_tex_h }, io, my_tex_w, my_tex_h);
+    SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     static float sz = 30.0f;
@@ -95,6 +170,13 @@ void PanoLayer::OnUIRender()
 
     ImGui::End();
     ImGui::PopStyleVar(2);
+
+    // Render to texture
+    renderDrawList(fbo, draw_list, ImVec2{ m_ViewportBounds[0].x, m_ViewportBounds[0].y }, m_fboSize);
+
+    ImGui::Begin("Test");
+    ImGui::Image((ImTextureID)tex, m_fboSize);
+    ImGui::End();
 }
 
 void PanoLayer::OnUpdate()
