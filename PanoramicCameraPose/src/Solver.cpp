@@ -291,100 +291,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
     }
 }
 
-bool RelativePoseSolver::SolveEssentialMatrixGurobi(
-    const Mat3X& x1,
-    const Mat3X& x2,
-    std::vector<Mat3>* pvec_E)
-{
-    assert(x1.rows() == x2.rows());
-    assert(x1.cols() == x2.cols());
-
-    GRBEnv env = GRBEnv();
-    GRBModel model = GRBModel(env);
-
-    try
-    {
-        //variables: 9 entries in E, row major
-        std::vector<GRBVar> vars;
-        for (int i = 0; i < 9; i++)
-        {
-            vars.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
-        }
-
-        //boolean flags for relaxing certain ("outlier") matchings?
-
-        model.update();
-
-        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is vector form of E)
-        GRBQuadExpr obj;
-        for (int i = 0; i < x1.cols(); i++)
-        {
-            std::vector<double> row;
-            row.push_back(x1(0, i) * x2(0, i));
-            row.push_back(x1(1, i) * x2(0, i));
-            row.push_back(x1(2, i) * x2(0, i));
-            row.push_back(x1(0, i) * x2(1, i));
-            row.push_back(x1(1, i) * x2(1, i));
-            row.push_back(x1(2, i) * x2(1, i));
-            row.push_back(x1(0, i) * x2(2, i));
-            row.push_back(x1(1, i) * x2(2, i));
-            row.push_back(x1(2, i) * x2(2, i));
-
-            GRBLinExpr term;
-            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
-            {
-                term += row[j] * vars[j];
-            }
-
-            obj += term * term;
-        }
-        model.setObjective(obj);  //to minimize
-
-        //constraint: e vector is unit vector
-        {
-            GRBQuadExpr term;
-            for (int j = 0; j < 9; j++)
-            {
-                term += vars[j] * vars[j];
-            }
-
-            model.addQConstr(term == 1);
-        }
-
-        //solve!
-        model.set(GRB_IntParam_NonConvex, 2);
-
-        model.optimize();
-        int status = model.get(GRB_IntAttr_Status);
-        if (status == 3)
-        {
-            //infeasible
-            std::cout << "[SolveEssentialMatrixGurobi] the problem is infeasible." << std::endl;
-            return false;
-        }
-        else if (status != 9/*time-out*/ && status != 2 && status != 11 && status != 13)
-        {
-            //some other failure
-            std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
-            return false;
-        }
-
-        //get results
-        Mat3 E;
-        for (int i = 0; i < 9; i++)
-        {
-            E(i / 3, i % 3) = vars[i].get(GRB_DoubleAttr_X);
-        }
-
-        pvec_E->emplace_back(E);
-    }
-    catch (GRBException e)
-    {
-        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
-    }
-    return true;
-}
-
 void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::vector<glm::vec3>& pos_gt, MatchPoints& match_points)
 {
     Image<unsigned char> imageL, imageR;
@@ -621,5 +527,143 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                 }
             }
         }
+    }
+}
+
+bool RelativePoseSolver::SolveEssentialMatrixGurobi(
+    const Mat3X& x1,
+    const Mat3X& x2,
+    std::vector<Mat3>* pvec_E)
+{
+    assert(x1.rows() == x2.rows());
+    assert(x1.cols() == x2.cols());
+
+    GRBEnv env = GRBEnv();
+    GRBModel model = GRBModel(env);
+
+    try
+    {
+        //variables: 9 entries in E, row major
+        std::vector<GRBVar> vars_E;
+        for (int i = 0; i < 9; i++)
+        {
+            vars_E.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //slack variables for each (row) LHS term of the essential matrix system Ae = 0
+        std::vector<GRBVar> vars_LHS;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            vars_LHS.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //boolean flags for relaxing certain ("outlier") matchings?
+        /*std::vector<GRBVar> vars_relax;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            vars_relax.push_back(model.addVar(0, 1, 0, GRB_BINARY));
+        }*/
+
+        model.update();
+
+        //obj: minimize sum of squared of LHS terms
+        GRBQuadExpr obj;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            obj += vars_LHS[i] * vars_LHS[i];
+        }
+        model.setObjective(obj);  //to minimize
+
+        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is the vector form of E)
+        //GRBQuadExpr obj;
+        //for (int i = 0; i < x1.cols(); i++)
+        //{
+        //    std::vector<float> row;
+        //    row.push_back(x1(0, i) * x2(0, i));
+        //    row.push_back(x1(1, i) * x2(0, i));
+        //    row.push_back(x1(2, i) * x2(0, i));
+        //    row.push_back(x1(0, i) * x2(1, i));
+        //    row.push_back(x1(1, i) * x2(1, i));
+        //    row.push_back(x1(2, i) * x2(1, i));
+        //    row.push_back(x1(0, i) * x2(2, i));
+        //    row.push_back(x1(1, i) * x2(2, i));
+        //    row.push_back(x1(2, i) * x2(2, i));
+
+        //    GRBLinExpr term;
+        //    for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+        //    {
+        //        term += row[j] * vars_E[j];
+        //    }
+        //    
+        //    obj += term * term;            
+        //}
+        //model.setObjective(obj);  //to minimize
+
+        ////constraints: 
+
+        //LHS term slack variables:
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::vector<float> row;  //LHS weights
+            row.push_back(x1(0, i) * x2(0, i));
+            row.push_back(x1(1, i) * x2(0, i));
+            row.push_back(x1(2, i) * x2(0, i));
+            row.push_back(x1(0, i) * x2(1, i));
+            row.push_back(x1(1, i) * x2(1, i));
+            row.push_back(x1(2, i) * x2(1, i));
+            row.push_back(x1(0, i) * x2(2, i));
+            row.push_back(x1(1, i) * x2(2, i));
+            row.push_back(x1(2, i) * x2(2, i));
+
+            GRBLinExpr term;
+            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+            {
+                term += row[j] * vars_E[j];
+            }
+
+            model.addConstr(term == vars_LHS[i]);
+        }
+        
+        //e vector is unit vector
+        {
+            GRBQuadExpr term;
+            for (int j = 0; j < 9; j++)
+            {
+                term += vars_E[j] * vars_E[j];
+            }
+
+            model.addQConstr(term == 1);
+        }        
+
+        //solve!
+        model.set(GRB_IntParam_NonConvex, 2);
+
+        model.optimize();
+        int status = model.get(GRB_IntAttr_Status);
+        if (status == 3)
+        {
+            //infeasible
+            std::cout << "[SolveEssentialMatrixGurobi] the problem is infeasible." << std::endl;
+            return false;
+        }
+        else if (status != 9/*time-out*/ && status != 2 && status != 11 && status != 13)
+        {
+            //some other failure
+            std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
+            return false;
+        }
+
+        //get results
+        Mat3 E;
+        for (int i = 0; i < 9; i++)
+        {
+            E(i / 3, i % 3) = vars_E[i].get(GRB_DoubleAttr_X);
+        }
+
+        pvec_E->emplace_back(E);
+    }
+    catch (GRBException e)
+    {
+        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
     }
 }
