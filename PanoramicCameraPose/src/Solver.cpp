@@ -22,6 +22,7 @@
 
 #include "gurobi_c++.h"
 #include <imgui/imgui.h>
+#include <regex>  // regex_match, smatch
 
 using namespace openMVG;
 using namespace openMVG::cameras;
@@ -31,7 +32,7 @@ using namespace openMVG::matching;
 using namespace openMVG::robust;
 using namespace openMVG::sfm;
 
-std::vector<std::string> split(std::string s) {
+static std::vector<std::string> split(std::string s) {
     std::vector<std::string> ret;
     size_t pos = 0;
     while (true) {
@@ -60,6 +61,36 @@ float WeightedRMSE(const std::vector<glm::vec3>& pos_gt, const std::vector<glm::
     return std::sqrt(sum / weightSum);
 }
 
+static Pose3 ParseStrToPose(std::string& str)
+{
+    // example: pano_R90_T(0,0_5,0) => rotate(90 degree) and Translation (0, 0.5, 0)
+    // Step 1: Separate rotation angle and translation
+    std::replace(str.begin(), str.end(), '_', '.');
+    std::regex pattern{ R"([+-]?[0-9]*[.]?[0-9]+)" };
+    std::vector<std::string> matches;
+    std::copy(std::sregex_token_iterator(str.begin(), str.end(), pattern),
+        std::sregex_token_iterator(), // Default constructor. Constructs the end-of-sequence iterator.
+        std::back_inserter(matches));
+
+    // Step 2: Get rotation matrix and translation vector
+    double degree = std::stod(matches[0]);
+    double x = std::stod(matches[1]);
+    double y = std::stod(matches[2]);
+    double z = std::stod(matches[3]);
+
+    // Transition to OpenMVG coordinate system
+    Eigen::Matrix3d transition;
+    transition << 0.0, -1.0,  0.0,
+                  0.0,  0.0, -1.0,
+                  1.0,  0.0,  0.0;
+    Vec3 rotaAxis = transition * Vec3(0.0, 0.0, 1.0);
+    Eigen::AngleAxisd aa(glm::radians(degree), rotaAxis);
+    Mat3 R = aa.toRotationMatrix();
+
+    Vec3 t{ x, y, z };
+    t = transition * t;
+    t.normalize();
+}
 
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
     const MatchPoints& match_points, int method)
@@ -138,52 +169,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
         const Mat xL_spherical = cameraL(xL),
             xR_spherical = cameraR(xR);
-
-        // original ACRANSAC Eigth Point Algorithm
-        
-        //-- Essential matrix robust estimation from spherical bearing vectors
-        /*
-        std::vector<uint32_t> vec_inliers;
-
-        
-        // Define the AContrario angular error adaptor
-        using KernelType =
-            openMVG::robust::ACKernelAdaptor_AngularRadianError<
-            //openMVG::essential::kernel::ThreePointUprightRelativePoseSolver,
-            openMVG::EightPointRelativePoseSolver, // Use the 8 point solver in order to estimate E
-            //openMVG::essential::kernel::FivePointSolver, // Use the 5 point solver in order to estimate E
-            openMVG::AngularError,
-            Mat3>;
-
-        KernelType kernel(xL_spherical, xR_spherical);
-
-        // Robust estimation of the Essential matrix and its precision
-        Mat3 E;
-        const double precision = std::numeric_limits<double>::infinity(); // infinity() for weighted sample // D2R(4.0); 0.0698132  // 
-        std::cout << "precision:" << precision << std::endl;
-        //const std::pair<double, double> ACRansacOut =
-        //  ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
-        const std::pair<double, double> ACRansacOut = Weighted_ACRANSAC(kernel, vec_inliers, match_points.weights, 1024, &E, precision, true);
-        const double& threshold = ACRansacOut.first;
-
-        std::cout << "\n Angular threshold found: " << R2D(threshold) << "(Degree)" << std::endl;
-        std::cout << "\n #Putatives/#inliers : " << xL_spherical.cols() << "/" << vec_inliers.size() << "\n" << std::endl;
-
-        const bool bVertical = true;
-        InlierMatches2SVG
-        (
-            jpg_filenameL,
-            { imageL.Width(), imageL.Height() },
-            featureL,
-            jpg_filenameR,
-            { imageR.Width(), imageR.Height() },
-            featureR,
-            vec_PutativeMatches,
-            vec_inliers,
-            "04_inliers.svg",
-            bVertical
-        );
-        */
         
         std::vector<uint32_t> vec_inliers(L.size());
         std::iota(vec_inliers.begin(), vec_inliers.end(), 0);
@@ -238,6 +223,25 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             std::cout << "[                R              |     T     ]" << std::endl;
             std::cout << relative_pose.asMatrix() << std::endl << std::endl;
 
+            
+            // calculate rotation angle and axis from rotation martix
+            Eigen::AngleAxisd angleAxis(relative_pose.rotation());
+            Eigen::Vector3d& axis = angleAxis.axis();
+            std::cout << "Rotation Axis: [" << axis.x() << ", " << axis.y() << ", " << axis.z() << "]\t" << "Angle: " << angleAxis.angle() * (180.0 / M_PI) << std::endl << std::endl;
+
+            // ==Ground truth Pose==
+            // get folder name : pano_Rxx_T(x,x,x)
+            std::string s(jpg_filenameR);
+            std::vector<std::string> s_split = split(s);
+            
+            //Eigen::Mat34 relative_pose_gt = 
+            Pose3 pose_gt = ParseStrToPose(s_split[s_split.size() - 2]);
+            std::cout << "[                R              |     T     ]" << std::endl;
+            std::cout << pose_gt.asMatrix() << std::endl << std::endl;
+            Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
+            Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
+            std::cout << "Rotation Axis: [" << axis_gt.x() << ", " << axis_gt.y() << ", " << axis_gt.z() << "]\t" << "Angle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
+
 
             // TODO: scale and compare with ground truth.
             float ratio = 0.5f / relative_pose.translation().x();
@@ -280,12 +284,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             //std::cout << "Weighted RMSE : " << w_rmse << std::endl;
             
 
-            // get folder name
-            /*
-            std::string s(jpg_filenameR);
-            std::vector<std::string> s_split = split(s);
-            std::cout << s_split[s_split.size() - 2];
-            */
+            
             // Perform Bundle Adjustment of the scene
             Bundle_Adjustment_Ceres bundle_adjustment_obj;
             if (bundle_adjustment_obj.Adjust(tiny_scene,
@@ -323,6 +322,99 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             }
 
         }
+    }
+}
+
+bool RelativePoseSolver::SolveEssentialMatrixGurobi(
+    const Mat3X& x1,
+    const Mat3X& x2,
+    std::vector<Mat3>* pvec_E)
+{
+    assert(x1.rows() == x2.rows());
+    assert(x1.cols() == x2.cols());
+
+    GRBEnv env = GRBEnv();
+    GRBModel model = GRBModel(env);
+
+    try
+    {
+        //variables: 9 entries in E, row major
+        std::vector<GRBVar> vars;
+        for (int i = 0; i < 9; i++)
+        {
+            vars.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //boolean flags for relaxing certain ("outlier") matchings?
+
+        model.update();
+
+        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is vector form of E)
+        GRBQuadExpr obj;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::vector<float> row;
+            row.push_back(x1(0, i) * x2(0, i));
+            row.push_back(x1(1, i) * x2(0, i));
+            row.push_back(x1(2, i) * x2(0, i));
+            row.push_back(x1(0, i) * x2(1, i));
+            row.push_back(x1(1, i) * x2(1, i));
+            row.push_back(x1(2, i) * x2(1, i));
+            row.push_back(x1(0, i) * x2(2, i));
+            row.push_back(x1(1, i) * x2(2, i));
+            row.push_back(x1(2, i) * x2(2, i));
+
+            GRBLinExpr term;
+            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+            {
+                term += row[j] * vars[j];
+            }
+
+            obj += term * term;
+        }
+        model.setObjective(obj);  //to minimize
+
+        //constraint: e vector is unit vector
+        {
+            GRBQuadExpr term;
+            for (int j = 0; j < 9; j++)
+            {
+                term += vars[j] * vars[j];
+            }
+
+            model.addQConstr(term == 1);
+        }
+
+        //solve!
+        model.set(GRB_IntParam_NonConvex, 2);
+
+        model.optimize();
+        int status = model.get(GRB_IntAttr_Status);
+        if (status == 3)
+        {
+            //infeasible
+            std::cout << "[SolveEssentialMatrixGurobi] the problem is infeasible." << std::endl;
+            return false;
+        }
+        else if (status != 9/*time-out*/ && status != 2 && status != 11 && status != 13)
+        {
+            //some other failure
+            std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
+            return false;
+        }
+
+        //get results
+        Mat3 E;
+        for (int i = 0; i < 9; i++)
+        {
+            E(i / 3, i % 3) = vars[i].get(GRB_DoubleAttr_X);
+        }
+
+        pvec_E->emplace_back(E);
+    }
+    catch (GRBException e)
+    {
+        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
     }
 }
 
@@ -508,7 +600,7 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                     for (auto i : inliers_indexes) std::cout << i << " ";
                     std::cout << std::endl;
                     std::vector<glm::vec3> pos_gen;
-                    
+
 
                     // Add a new landmark (3D point with its image observations)
                     for (int i = 0; i < inliers_indexes.size(); ++i)
@@ -534,9 +626,6 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                         //std::cout << "Distance: " << glm::distance(pos_gt[ind], point) << std::endl;
                         //std::cout << std::endl;
                     }
-
-
-
 
                     //Save(tiny_scene, "EssentialGeometry_start.ply", ESfM_Data(ALL));
 
@@ -569,7 +658,6 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                             residuals.emplace_back(residual_J.norm());
 
                         }
-
 
                         std::cout << "Residual statistics (pixels):" << std::endl;
                         minMaxMeanMedian<double>(residuals.cbegin(), residuals.cend(), std::cout);
