@@ -1,8 +1,8 @@
 #pragma once
-#include <vector>
+
 #include "glm/glm.hpp"
 #include "MatchPoints.h"
-#include "openMVG/numeric/eigen_alias_definition.hpp"
+#include <vector>
 
 class SIFTSolver
 {

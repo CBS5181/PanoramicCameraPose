@@ -1,12 +1,7 @@
+#include "pch.h"
 #include "ToolLayer.h"
 #include "imgui/imgui.h"
 #include "PanoLayer.h"
-#include <utility>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <filesystem>
 #include <ctime>
 #include "Solver.h"
 #include "Utils/WindowsPlatformUtils.h"

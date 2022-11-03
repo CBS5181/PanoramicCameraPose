@@ -1,8 +1,8 @@
+#include "pch.h"
 #include "Application.h"
 #include "PanoLayer.h"
 #include "ToolLayer.h"
 #include "imgui/imgui.h"
-#include <iostream>
 
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
@@ -125,7 +125,7 @@ void PanoLayer::OnUIRender()
     auto viewportOffset = ImGui::GetWindowPos();
     m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
     m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
-    
+
     auto& left_image = ToolLayer::s_FileManager.GetPano01Texture();
     auto& right_image = ToolLayer::s_FileManager.GetPano02Texture();
 
@@ -143,7 +143,7 @@ void PanoLayer::OnUIRender()
     ImVec2 pos = ImGui::GetCursorScreenPos();
     float my_tex_w = (float)left_image.width * m_ratio;
     float my_tex_h = (float)left_image.height * m_ratio;
-    
+
     ImGui::Image(my_left_tex_id, ImVec2{ my_tex_w, my_tex_h });
     SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
     ImGui::Image(my_right_tex_id, ImVec2{ my_tex_w, my_tex_h });
@@ -158,7 +158,7 @@ void PanoLayer::OnUIRender()
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_right_mouse_pixel.x , m_ViewportBounds[0].y + m_right_mouse_pixel.y + 512 * m_ratio }, sz * 0.5f * m_ratio, col);
 
     // draw already matching points
-    for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i) 
+    for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)
     {
         //auto& [left_match, right_match] = matching_points[i];
         glm::vec2& left_match = ToolLayer::s_MatchPoints.left_pixels[i];
@@ -173,10 +173,6 @@ void PanoLayer::OnUIRender()
 
     // Render to texture
     renderDrawList(fbo, draw_list, ImVec2{ m_ViewportBounds[0].x, m_ViewportBounds[0].y }, m_fboSize);
-
-    ImGui::Begin("Test");
-    ImGui::Image((ImTextureID)tex, m_fboSize);
-    ImGui::End();
 }
 
 void PanoLayer::OnUpdate()
