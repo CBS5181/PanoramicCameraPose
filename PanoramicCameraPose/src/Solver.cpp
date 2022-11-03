@@ -596,21 +596,67 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     try
     {
         //variables: 9 entries in E, row major
-        std::vector<GRBVar> vars;
+        std::vector<GRBVar> vars_E;
         for (int i = 0; i < 9; i++)
         {
-            vars.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+            vars_E.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //slack variables for each (row) LHS term of the essential matrix system Ae = 0
+        std::vector<GRBVar> vars_LHS;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            vars_LHS.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
         }
 
         //boolean flags for relaxing certain ("outlier") matchings?
+        /*std::vector<GRBVar> vars_relax;
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            vars_relax.push_back(model.addVar(0, 1, 0, GRB_BINARY));
+        }*/
 
         model.update();
 
-        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is vector form of E)
+        //obj: minimize sum of squared of LHS terms
         GRBQuadExpr obj;
         for (int i = 0; i < x1.cols(); i++)
         {
-            std::vector<float> row;
+            obj += vars_LHS[i] * vars_LHS[i];
+        }
+        model.setObjective(obj);  //to minimize
+
+        //obj: least squares of Ae = 0  (A is rows of size-9 cols, e is the vector form of E)
+        //GRBQuadExpr obj;
+        //for (int i = 0; i < x1.cols(); i++)
+        //{
+        //    std::vector<float> row;
+        //    row.push_back(x1(0, i) * x2(0, i));
+        //    row.push_back(x1(1, i) * x2(0, i));
+        //    row.push_back(x1(2, i) * x2(0, i));
+        //    row.push_back(x1(0, i) * x2(1, i));
+        //    row.push_back(x1(1, i) * x2(1, i));
+        //    row.push_back(x1(2, i) * x2(1, i));
+        //    row.push_back(x1(0, i) * x2(2, i));
+        //    row.push_back(x1(1, i) * x2(2, i));
+        //    row.push_back(x1(2, i) * x2(2, i));
+
+        //    GRBLinExpr term;
+        //    for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+        //    {
+        //        term += row[j] * vars_E[j];
+        //    }
+        //    
+        //    obj += term * term;            
+        //}
+        //model.setObjective(obj);  //to minimize
+
+        ////constraints: 
+
+        //LHS term slack variables:
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::vector<float> row;  //LHS weights
             row.push_back(x1(0, i) * x2(0, i));
             row.push_back(x1(1, i) * x2(0, i));
             row.push_back(x1(2, i) * x2(0, i));
@@ -624,23 +670,22 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             GRBLinExpr term;
             for (int j = 0; j < 9; j++)  //w.r.t. a row of A
             {
-                term += row[j] * vars[j];
+                term += row[j] * vars_E[j];
             }
 
-            obj += term * term;
+            model.addConstr(term == vars_LHS[i]);
         }
-        model.setObjective(obj);  //to minimize
-
-        //constraint: e vector is unit vector
+        
+        //e vector is unit vector
         {
             GRBQuadExpr term;
             for (int j = 0; j < 9; j++)
             {
-                term += vars[j] * vars[j];
+                term += vars_E[j] * vars_E[j];
             }
 
             model.addQConstr(term == 1);
-        }
+        }        
 
         //solve!
         model.set(GRB_IntParam_NonConvex, 2);
@@ -664,7 +709,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
         Mat3 E;
         for (int i = 0; i < 9; i++)
         {
-            E(i / 3, i % 3) = vars[i].get(GRB_DoubleAttr_X);
+            E(i / 3, i % 3) = vars_E[i].get(GRB_DoubleAttr_X);
         }
 
         pvec_E->emplace_back(E);
