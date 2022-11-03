@@ -22,6 +22,7 @@ project "PanoramicCameraPose"
 	staticruntime "off" -- for multithread-specific and DLL-specific version of the run-time library
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
+    ignoredefaultlibraries { "LIBCMT" }
 
      -- precompiled header
     pchheader "pch.h"

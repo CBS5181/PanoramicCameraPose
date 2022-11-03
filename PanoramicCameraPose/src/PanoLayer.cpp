@@ -155,7 +155,7 @@ void PanoLayer::OnUIRender()
     const ImU32 col = ImColor(colf);
     // draw mouse picking circle
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_left_mouse_pixel.x , m_ViewportBounds[0].y + m_left_mouse_pixel.y }, sz * 0.5f * m_ratio, col);
-    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_right_mouse_pixel.x , m_ViewportBounds[0].y + m_right_mouse_pixel.y + 512 * m_ratio }, sz * 0.5f * m_ratio, col);
+    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_right_mouse_pixel.x , m_ViewportBounds[0].y + m_right_mouse_pixel.y + 512.0f * m_ratio }, sz * 0.5f * m_ratio, col);
 
     // draw already matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)
@@ -177,16 +177,15 @@ void PanoLayer::OnUIRender()
 
 void PanoLayer::OnUpdate()
 {
-    auto [mx, my] = ImGui::GetMousePos();
-    mx -= m_ViewportBounds[0].x;
-    my -= m_ViewportBounds[0].y;
+    auto [mouseX, mouseY] = ImGui::GetMousePos();
+    mouseX -= m_ViewportBounds[0].x;
+    mouseY -= m_ViewportBounds[0].y;
     glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
     //my = viewportSize.y - my; // 改為左下(0, 0) y往上為正
     //std::cout << "x: " << mx << " y: " << my << std::endl;
-    int mouseX = (int)mx;
-    int mouseY = (int)my;
+    
     // mouse picking
-    if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)1024 * m_ratio) 
+    if (mouseX >= 0 && mouseY >= 0 && mouseX < viewportSize.x && mouseY < 1024.0f * m_ratio) 
     {
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
@@ -194,16 +193,16 @@ void PanoLayer::OnUpdate()
             {
                 m_left_mouse_pixel.x = mouseX;
                 m_left_mouse_pixel.y = mouseY;
-                s_left_pixel.x = glm::min(glm::round(m_left_mouse_pixel.x / m_ratio), 1023.0f);
-                s_left_pixel.y = glm::min(glm::round(m_left_mouse_pixel.y / m_ratio), 511.0f);
+                s_left_pixel.x = glm::min(m_left_mouse_pixel.x / m_ratio, 1023.0f);
+                s_left_pixel.y = glm::min(m_left_mouse_pixel.y / m_ratio, 511.0f);
                 
             }
             else
             {
                 m_right_mouse_pixel.x = mouseX;
-                m_right_mouse_pixel.y = mouseY - 512 * m_ratio;
-                s_right_pixel.x = glm::min(glm::round(m_right_mouse_pixel.x / m_ratio), 1023.0f);
-                s_right_pixel.y = glm::min(glm::round(m_right_mouse_pixel.y / m_ratio), 511.0f);
+                m_right_mouse_pixel.y = mouseY - 512.0f * m_ratio;
+                s_right_pixel.x = glm::min(m_right_mouse_pixel.x / m_ratio, 1023.0f);
+                s_right_pixel.y = glm::min(m_right_mouse_pixel.y / m_ratio, 511.0f);
             }
         }
     }
