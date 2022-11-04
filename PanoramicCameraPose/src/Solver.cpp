@@ -4,6 +4,7 @@
 #include <imgui/imgui.h>
 #include <regex>  // regex_match, smatch
 
+
 using namespace openMVG;
 using namespace openMVG::cameras;
 using namespace openMVG::geometry;
@@ -72,6 +73,41 @@ static Pose3 ParseStrToPose(std::string& str)
     t.normalize();
 	
     return Pose3{ R, t };
+}
+
+void EvaluationMetrics(const Pose3& pose_gt, const Pose3& pose_est)
+{
+    Eigen::IOFormat fmt(6, 0, " ", "\n", "[", "]"), vfmt(6, 0, "", "", "", "", "[", "]"); // Matrix format and vector format.
+    std::cout << "Esitmated Pose\n";
+    std::cout << "[             R               |    T    ]" << std::endl;
+    std::cout << std::fixed << pose_est.asMatrix().format(fmt) << std::endl << std::endl;
+
+    // calculate rotation angle and axis from rotation martix
+    Eigen::AngleAxisd angleAxis(pose_est.rotation());
+    Eigen::Vector3d& axis = angleAxis.axis();
+    std::cout << "Rotation Axis: " << axis.format(vfmt) << "\tAngle: " << angleAxis.angle() * (180.0 / M_PI) << std::endl << std::endl;
+
+    // ====Ground Truth====
+    std::cout << "Ground Truth Pose\n";
+    std::cout << "[             R               |    T    ]" << std::endl;
+    std::cout << std::fixed << pose_gt.asMatrix().format(fmt) << std::endl << std::endl;
+    Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
+    Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
+    std::cout << "Rotation Axis: " << axis_gt.format(vfmt) << "\tAngle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
+
+    // ======================================================================================================================
+    // Evaluation metrics method 
+    // From paper Pose Estimation for Two-View Panoramas based on Keypoint Matching: a Comparative Studyand Critical Analysis
+    // CVPRW 2022
+    // ======================================================================================================================
+    // Rotation error (RE)
+    double RE = std::acos(((pose_gt.rotation().transpose() * pose_est.rotation()).trace() - 1.0) / 2.0);
+
+    // Translation angular error (TAE)
+    double TAE = std::acos(pose_gt.translation().dot(pose_est.translation()));
+
+    std::cout << "Rotation error: " << RE << "\tAccuracy: " << (1.0 - RE) * 100.0 << "%\n";
+    std::cout << "Translation angular error: " << TAE << "\tAccuracy: " << (1.0 - TAE) * 100.0 << "%\n\n";
 }
 
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
@@ -189,6 +225,10 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
         if (true)
         {
+            // check inlier indexs
+            std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
+            for (auto i : inliers_indexes) std::cout << i << " ";
+            std::cout << std::endl;
             // Lets make a BA on the scene to check if it relative pose and structure can be refined
 
             // Setup a SfM scene with two view corresponding the pictures
@@ -202,35 +242,12 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             const Pose3 pose0 = tiny_scene.poses[tiny_scene.views[0]->id_pose] = Pose3(Mat3::Identity(), Vec3::Zero());
             const Pose3 pose1 = tiny_scene.poses[tiny_scene.views[1]->id_pose] = relative_pose;
 
-            std::cout << "[                R              |     T     ]" << std::endl;
-            std::cout << relative_pose.asMatrix() << std::endl << std::endl;
-
-            
-            // calculate rotation angle and axis from rotation martix
-            Eigen::AngleAxisd angleAxis(relative_pose.rotation());
-            Eigen::Vector3d& axis = angleAxis.axis();
-            std::cout << "Rotation Axis: [" << axis.x() << ", " << axis.y() << ", " << axis.z() << "]\t" << "Angle: " << angleAxis.angle() * (180.0 / M_PI) << std::endl << std::endl;
-
             // ==Ground truth Pose==
             // get folder name : pano_Rxx_T(x,x,x)
-            std::string s(jpg_filenameR);
-            std::vector<std::string> s_split = split(s);
-            
-            //Eigen::Mat34 relative_pose_gt = 
-            Pose3 pose_gt = ParseStrToPose(s_split[s_split.size() - 2]);
-            std::cout << "[                R              |     T     ]" << std::endl;
-            std::cout << pose_gt.asMatrix() << std::endl << std::endl;
-            Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
-            Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
-            std::cout << "Rotation Axis: [" << axis_gt.x() << ", " << axis_gt.y() << ", " << axis_gt.z() << "]\t" << "Angle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
+            std::filesystem::path p(jpg_filenameR);
+            Pose3 pose_gt = ParseStrToPose(p.parent_path().filename().string());
+            EvaluationMetrics(pose_gt, relative_pose);
 
-
-            std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
-            for (auto i : inliers_indexes) std::cout << i << " ";
-            std::cout << std::endl;
-            auto& pos_gt = match_points.positions;
-            std::vector<glm::vec3> pos_gen;
-            
             // Add a new landmark (3D point with its image observations)
             for (int i = 0; i < inliers_indexes.size(); ++i)
             {
@@ -241,16 +258,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
             }
 
-            //// RMSE
-            //auto SquareError = [](const glm::vec3& a, const glm::vec3& b) { float d = glm::distance(a, b); return d * d; };
-            //auto sum = std::transform_reduce(pos_gt.begin(), pos_gt.end(), pos_gen.begin(), 0.0f, std::plus<>(), SquareError);
-            //auto rmse = std::sqrt(sum / pos_gt.size());
-            //auto w_rmse = WeightedRMSE(pos_gt, pos_gen, match_points.weights);
-            //std::cout << "RMSE : " << rmse << std::endl;
-            //std::cout << "Weighted RMSE : " << w_rmse << std::endl;
-            
-
-            
             // Perform Bundle Adjustment of the scene
             Bundle_Adjustment_Ceres bundle_adjustment_obj;
             if (bundle_adjustment_obj.Adjust(tiny_scene,
@@ -446,6 +453,9 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                     &inliers_indexes,
                     &inliers_X))
                 {
+                    std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
+                    for (auto i : inliers_indexes) std::cout << i << " ";
+                    std::cout << std::endl;
                     // Lets make a BA on the scene to check if it relative pose and structure can be refined
 
                     // Setup a SfM scene with two view corresponding the pictures
@@ -459,12 +469,11 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                     const Pose3 pose0 = tiny_scene.poses[tiny_scene.views[0]->id_pose] = Pose3(Mat3::Identity(), Vec3::Zero());
                     const Pose3 pose1 = tiny_scene.poses[tiny_scene.views[1]->id_pose] = relative_pose;
 
-                    std::cout << "[                R               |     T     ]" << std::endl;
-                    std::cout << relative_pose.asMatrix() << std::endl;
-
-                    std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
-                    for (auto i : inliers_indexes) std::cout << i << " ";
-                    std::cout << std::endl;
+                    // ==Ground truth Pose==
+                    // get folder name : pano_Rxx_T(x,x,x)
+                    std::filesystem::path p(jpg_filenameR);
+                    Pose3 pose_gt = ParseStrToPose(p.parent_path().filename().string());
+                    EvaluationMetrics(pose_gt, relative_pose);
 
                     // Add a new landmark (3D point with its image observations)
                     for (int i = 0; i < inliers_indexes.size(); ++i)
