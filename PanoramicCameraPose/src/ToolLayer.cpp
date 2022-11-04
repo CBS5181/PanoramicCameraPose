@@ -127,11 +127,11 @@ void ToolLayer::OnUIRender()
 		ImGui::PopID();
 	}
 	ImGui::Separator();
-	if (ImGui::Button("Match"))
+	if (ImGui::Button("Match"))  //add a user-specified matching
 	{
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, m_PanoPos_gt[ind]); // user pick weight = 100
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, m_PanoPos_gt[ind], true/*is user-specified*/); // user pick weight = 100
 	}
 
 	// match table
@@ -220,7 +220,7 @@ void ToolLayer::OnUIRender()
 				// depth ground trugh from 3D scene
 				unsigned int ind = corner_pixel.y * IMG_WIDTH + corner_pixel.x;
 				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind]); // LED2Net weight = 10
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind], false/*not user-specified*/); // LED2Net weight = 10
 				++cnt;
 			}
 		}
