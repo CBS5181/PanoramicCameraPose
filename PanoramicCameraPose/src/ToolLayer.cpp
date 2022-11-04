@@ -140,6 +140,7 @@ void ToolLayer::OnUIRender()
 		// When using ScrollX or ScrollY we need to specify a size for our table container!
 		// Otherwise by default the table will fit all available space, like a BeginChild() call.
 		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 12);
+		static int selectIndex = -1;
 		if (ImGui::BeginTable("Matching points", 3, flags, outer_size))
 		{
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
@@ -155,14 +156,27 @@ void ToolLayer::OnUIRender()
 				auto& L = s_MatchPoints.left_pixels[row];
 				auto& R = s_MatchPoints.right_pixels[row];
 				auto& p = s_MatchPoints.positions[row];
+				const bool matchIsSelectd = selectIndex == row;
 				for (int column = 0; column < 3; column++)
 				{
 					ImGui::TableSetColumnIndex(column);
 					switch (column)
 					{
 					case 0:
-						ImGui::Text("Match %d", row);
+					{
+						// Selectable for inspecting matching point
+						char label[32];
+						sprintf(label, "%d", row);
+						ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap;
+						if (ImGui::Selectable(label, matchIsSelectd, selectable_flags, ImVec2(0, TEXT_BASE_HEIGHT)))
+						{
+							PanoLayer::s_left_pixel = L;
+							PanoLayer::s_right_pixel = R;
+							selectIndex = (selectIndex == row ? -1 : row);
+						}
+						//ImGui::Text("Match %d", row);
 						break;
+					}
 					case 1:
 						ImGui::Text("(%.2f, %.2f)", L.x, L.y);
 						break;

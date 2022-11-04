@@ -153,9 +153,10 @@ void PanoLayer::OnUIRender()
     static float sz = 30.0f;
     static ImVec4 colf = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
     const ImU32 col = ImColor(colf);
+    const float thickness = 3.0f;
     // draw mouse picking circle
-    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_left_mouse_pixel.x , m_ViewportBounds[0].y + m_left_mouse_pixel.y }, sz * 0.5f * m_ratio, col);
-    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + m_right_mouse_pixel.x , m_ViewportBounds[0].y + m_right_mouse_pixel.y + 512.0f * m_ratio }, sz * 0.5f * m_ratio, col);
+    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
 
     // draw already matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)
@@ -191,18 +192,14 @@ void PanoLayer::OnUpdate()
         {
             if (mouseY < 512 * m_ratio)
             {
-                m_left_mouse_pixel.x = mouseX;
-                m_left_mouse_pixel.y = mouseY;
-                s_left_pixel.x = glm::min(m_left_mouse_pixel.x / m_ratio, 1023.0f);
-                s_left_pixel.y = glm::min(m_left_mouse_pixel.y / m_ratio, 511.0f);
+                s_left_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
+                s_left_pixel.y = glm::min(mouseY / m_ratio, 511.0f);
                 
             }
             else
             {
-                m_right_mouse_pixel.x = mouseX;
-                m_right_mouse_pixel.y = mouseY - 512.0f * m_ratio;
-                s_right_pixel.x = glm::min(m_right_mouse_pixel.x / m_ratio, 1023.0f);
-                s_right_pixel.y = glm::min(m_right_mouse_pixel.y / m_ratio, 511.0f);
+                s_right_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
+                s_right_pixel.y = glm::min((mouseY - 512.0f * m_ratio) / m_ratio, 511.0f);
             }
         }
     }
