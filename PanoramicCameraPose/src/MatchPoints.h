@@ -11,10 +11,11 @@ struct MatchPoints
 	std::vector<unsigned int> v_color;
 	std::vector<uint32_t> weights;
 	std::vector<glm::vec3> positions;
+	std::vector<bool> user_flags;  //is this matching user-specified?
 
 	size_t size() { return cnt; }
 
-	void AddPoint(const glm::vec2& left, const glm::vec2& right, const unsigned int color, const uint32_t weight, const glm::vec3& pos)
+	void AddPoint(const glm::vec2& left, const glm::vec2& right, const unsigned int color, const uint32_t weight, const glm::vec3& pos, const bool IsUser=false)
 	{
 		left_pixels.push_back(left);
 		right_pixels.push_back(right);
@@ -22,6 +23,7 @@ struct MatchPoints
 		weights.push_back(weight);
 		positions.push_back(pos);
 		++cnt;
+		user_flags.push_back(IsUser);
 	}
 
 	void ClearPixel()

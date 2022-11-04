@@ -162,8 +162,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
         }
         else if (method == 1)  //solve essential matrix by Gurobi?
-        {            
-            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, &Es);
+        {
+            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
         }
 
         std::cout << "Solved essential matrix:" << std::endl << Es[0] << std::endl;
@@ -533,10 +533,21 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
 bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     const Mat3X& x1,
     const Mat3X& x2,
+    const std::vector<bool>& user_flags,
     std::vector<Mat3>* pvec_E)
 {
     assert(x1.rows() == x2.rows());
     assert(x1.cols() == x2.cols());
+
+    //note: we assume non-user matchings are ceiling and then floor points (half and half)
+    //so there are (num_non-user / 2) possibilities of ceiling-to-ceiling / floor-to-floor matching  
+    int num_non_user_matchings = 0;
+    for (int i = 0; i < user_flags.size(); i++)
+    {
+        if (!user_flags[i])
+            num_non_user_matchings++;
+    }
+    std::cout << "num_non_user_matchings:" << num_non_user_matchings << std::endl;
 
     GRBEnv env = GRBEnv();
     GRBModel model = GRBModel(env);
@@ -557,12 +568,26 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             vars_LHS.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
         }
 
-        //boolean flags for relaxing certain ("outlier") matchings?
-        /*std::vector<GRBVar> vars_relax;
+        //for every x1 ceiling point, it can be: 1) matched to one of the x2 ceiling point, or 2) discarded
+        //however, addition touser-specified matching, in total we need (at least) 8 matchings
+        
+        //one-hot boolean flags for the ceiling-to-ceiling matching possibilities
+        //std::vector<GRBVar> vars_possibilities;
+        //int num_possibilities = num_non_user_matchings / 2;
+        //for (int i = 0; i < num_possibilities; i++)
+        //{
+         //   vars_possibilities.push_back(model.addVar(0, 1, 0, GRB_BINARY));
+        //}
+
+        //for every x1 ceiling point, it is either one of the matching possibility flags , or it is discarded
+
+        //boolean flags for relaxing certain rows of the essential matrix system
+        //note: user-specified matchings are NOT relaxable
+        std::vector<GRBVar> vars_relax;
         for (int i = 0; i < x1.cols(); i++)
         {
             vars_relax.push_back(model.addVar(0, 1, 0, GRB_BINARY));
-        }*/
+        }
 
         model.update();
 
@@ -601,7 +626,8 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
 
         ////constraints: 
 
-        //LHS term slack variables:
+        //LHS term slack variable constraint:
+        const float LARGE_NUM = 1000;
         for (int i = 0; i < x1.cols(); i++)
         {
             std::vector<float> row;  //LHS weights
@@ -621,7 +647,23 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
                 term += row[j] * vars_E[j];
             }
 
-            model.addConstr(term == vars_LHS[i]);
+            //note: if relax flag is active, the constraint is relaxed
+            model.addConstr(term - vars_LHS[i] >= -LARGE_NUM * vars_relax[i]);
+            model.addConstr(term - vars_LHS[i] <= LARGE_NUM * vars_relax[i]);
+        }
+
+        //because we need 8 matchings in total, 
+        //(# of non-user matchings - # of active relax flags) + # of user-specified matchings >= 8   -->
+        //# of active relax flags <= # of non-user matchings + # of user-specified matchings - 8
+        //# of active relax flags <= # total matchings - 8
+        {
+            GRBLinExpr sum;
+            for (int i = 0; i < x1.cols(); i++)
+            {
+                sum += vars_relax[i];
+            }
+
+            model.addConstr(sum <= x1.cols() - 8);
         }
         
         //e vector is unit vector
@@ -658,6 +700,20 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
         for (int i = 0; i < 9; i++)
         {
             E(i / 3, i % 3) = vars_E[i].get(GRB_DoubleAttr_X);
+        }
+
+        //report results
+        std::cout << "relax flags: ";
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::cout << vars_relax[i].get(GRB_DoubleAttr_X);
+        }
+        std::cout << std::endl;
+
+        std::cout << "LHS terms: ";
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            std::cout << vars_LHS[i].get(GRB_DoubleAttr_X);
         }
 
         pvec_E->emplace_back(E);

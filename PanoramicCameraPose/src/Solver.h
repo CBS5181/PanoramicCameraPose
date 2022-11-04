@@ -19,9 +19,11 @@ public:
 
 	//solve essential matrix by Gurobi
 	//x1,x2: columns of bearing vectors of matched feature points
+	//user_flags: flags of "user specified" matchings (size = x1.cols)
 	//pvec_E: solved essential matrix
 	static bool SolveEssentialMatrixGurobi(
 		const openMVG::Mat3X& x1,
 		const openMVG::Mat3X& x2,
+		const std::vector<bool>& user_flags,
 		std::vector<openMVG::Mat3>* pvec_E);
 };
