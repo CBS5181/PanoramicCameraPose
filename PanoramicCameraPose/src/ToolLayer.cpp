@@ -1,12 +1,7 @@
+#include "pch.h"
 #include "ToolLayer.h"
 #include "imgui/imgui.h"
 #include "PanoLayer.h"
-#include <utility>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <filesystem>
 #include <ctime>
 #include "Solver.h"
 #include "Utils/WindowsPlatformUtils.h"
@@ -145,13 +140,13 @@ void ToolLayer::OnUIRender()
 		// When using ScrollX or ScrollY we need to specify a size for our table container!
 		// Otherwise by default the table will fit all available space, like a BeginChild() call.
 		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 12);
-		if (ImGui::BeginTable("Matching points", 4, flags, outer_size))
+		if (ImGui::BeginTable("Matching points", 3, flags, outer_size))
 		{
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
 			ImGui::TableSetupColumn("Match #", ImGuiTableColumnFlags_None);
 			ImGui::TableSetupColumn("Pano_01", ImGuiTableColumnFlags_None);
 			ImGui::TableSetupColumn("Pano_02", ImGuiTableColumnFlags_None);
-			ImGui::TableSetupColumn("Position_groundtruth", ImGuiTableColumnFlags_None);
+			//ImGui::TableSetupColumn("Position_groundtruth", ImGuiTableColumnFlags_None);
 			ImGui::TableHeadersRow();
 
 			for (int row = 0; row < s_MatchPoints.size(); ++row)
@@ -160,7 +155,7 @@ void ToolLayer::OnUIRender()
 				auto& L = s_MatchPoints.left_pixels[row];
 				auto& R = s_MatchPoints.right_pixels[row];
 				auto& p = s_MatchPoints.positions[row];
-				for (int column = 0; column < 4; column++)
+				for (int column = 0; column < 3; column++)
 				{
 					ImGui::TableSetColumnIndex(column);
 					switch (column)
@@ -169,13 +164,13 @@ void ToolLayer::OnUIRender()
 						ImGui::Text("Match %d", row);
 						break;
 					case 1:
-						ImGui::Text("(%d, %d)", (int)L.x, (int)L.y);
+						ImGui::Text("(%.2f, %.2f)", L.x, L.y);
 						break;
 					case 2:
-						ImGui::Text("(%d, %d)", (int)R.x, (int)R.y);
+						ImGui::Text("(%.2f, %.2f)", R.x, R.y);
 						break;
 					case 3:
-						ImGui::Text("(%.4f, %.4f, %.4f)", p.x, p.y, p.z);
+						//ImGui::Text("(%.4f, %.4f, %.4f)", p.x, p.y, p.z);
 						break;
 					default:
 						ImGui::Text("Hello %d,%d", column, row);
@@ -224,7 +219,6 @@ void ToolLayer::OnUIRender()
 				++cnt;
 			}
 		}
-		
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Rotate Matching")) // Rotate right image corner for correct matching
@@ -236,38 +230,46 @@ void ToolLayer::OnUIRender()
 	{
 		if (ImGui::Button("Save Match points")) // Save current matching points
 		{
+			std::string name = "assets/matching_data/" + s_FileManager.GetPano01Filepath().filename().string() + "_and_" + s_FileManager.GetPano02Filepath().filename().string() + ".txt";
 			std::ofstream file;
-			file.open("assets/temp_matching.txt");
-			auto& left = s_MatchPoints.left_pixels;
-			auto& right = s_MatchPoints.right_pixels;
-			auto& weights = s_MatchPoints.weights;
-			auto& positions = s_MatchPoints.positions;
-			for (int i = 0; i < s_MatchPoints.size(); ++i)
+			file.open(name);
+			if (file.is_open())
 			{
-				file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << weights[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+				auto& left = s_MatchPoints.left_pixels;
+				auto& right = s_MatchPoints.right_pixels;
+				auto& weights = s_MatchPoints.weights;
+				auto& positions = s_MatchPoints.positions;
+				for (int i = 0; i < s_MatchPoints.size(); ++i)
+				{
+					file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << weights[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+				}
 			}
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Load Match points")) // Load matching points from txt file
 		{
-			if (s_MatchPoints.cnt) // clear before load
-			{
-				s_MatchPoints.ClearPixel();
-			}
+			s_MatchPoints.ClearPixel(); //  clear before load
+			std::string name = "assets/matching_data/" + s_FileManager.GetPano01Filepath().filename().string() + "_and_" + s_FileManager.GetPano02Filepath().filename().string() + ".txt";
 			std::ifstream file;
-			file.open("assets/temp_matching.txt");
-			std::string str;
-			glm::vec2 left, right;
-			uint32_t weight;
-			glm::vec3 pos;
-			while (std::getline(file, str))
+			file.open(name);
+			if (file.is_open())
 			{
-				std::istringstream iss(str);
-				iss >> left.x >> left.y >> right.x >> right.y >> weight >> pos.x >> pos.y >> pos.z;
-				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				s_MatchPoints.AddPoint(left, right, col, weight, pos);
+				std::string str;
+				glm::vec2 left, right;
+				uint32_t weight;
+				glm::vec3 pos;
+				while (std::getline(file, str))
+				{
+					std::istringstream iss(str);
+					iss >> left.x >> left.y >> right.x >> right.y >> weight >> pos.x >> pos.y >> pos.z;
+					const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+					s_MatchPoints.AddPoint(left, right, col, weight, pos);
+				}
 			}
-			std::cout << "Read match points : " << s_MatchPoints.size() << std::endl;
+			else
+			{
+				std::cout << "There is no matching file " << std::quoted(name) << std::endl;
+			}
 		}
 	}
 	ImGui::Separator();

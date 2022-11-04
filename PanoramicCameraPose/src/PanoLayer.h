@@ -17,6 +17,6 @@ public:
 private:
 	glm::vec2 m_ViewportSize = { 1024.0f, 512.0f };
 	glm::vec2 m_ViewportBounds[2] = {};
-	glm::vec3 m_left_mouse_pixel, m_right_mouse_pixel;
+	glm::vec2 m_left_mouse_pixel = { 0.0f, 0.0f }, m_right_mouse_pixel = { 0.0f, 0.0f };
 	float m_ratio = 1.0f;
 };

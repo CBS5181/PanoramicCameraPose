@@ -1,6 +1,6 @@
+#include "pch.h"
 #include "FileManager.h"
 #include "stb_image.h"
-#include <iostream>
 
 bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height)
 {

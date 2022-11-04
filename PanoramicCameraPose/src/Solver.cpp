@@ -1,25 +1,5 @@
+#include "pch.h"
 #include "Solver.h"
-#include "openMVG/cameras/Camera_Spherical.hpp"
-#include "openMVG/features/feature.hpp"
-#include "openMVG/features/sift/SIFT_Anatomy_Image_Describer.hpp"
-#include "openMVG/features/svg_features.hpp"
-#include "openMVG/image/image_io.hpp"
-#include "openMVG/image/image_concat.hpp"
-#include "openMVG/matching/regions_matcher.hpp"
-#include "openMVG/matching/svg_matches.hpp"
-#include "openMVG/multiview/conditioning.hpp"
-#include "openMVG/multiview/essential.hpp"
-#include "openMVG/multiview/motion_from_essential.hpp"
-#include "openMVG/multiview/triangulation.hpp"
-#include "openMVG/multiview/solver_essential_eight_point.hpp"
-#include "openMVG/multiview/solver_essential_five_point.hpp"
-#include "openMVG/robust_estimation/robust_estimator_ACRansac.hpp"
-#include "openMVG/robust_estimation/robust_estimator_ACRansacKernelAdaptator.hpp"
-#include "openMVG/sfm/pipelines/sfm_robust_model_estimation.hpp"
-#include "openMVG/sfm/sfm_data.hpp"
-#include "openMVG/sfm/sfm_data_BA_ceres.hpp"
-#include "openMVG/sfm/sfm_data_io.hpp"
-
 #include "gurobi_c++.h"
 #include <imgui/imgui.h>
 #include <regex>  // regex_match, smatch
@@ -90,6 +70,8 @@ static Pose3 ParseStrToPose(std::string& str)
     Vec3 t{ x, y, z };
     t = transition * t;
     t.normalize();
+	
+    return Pose3{ R, t };
 }
 
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
@@ -243,12 +225,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             std::cout << "Rotation Axis: [" << axis_gt.x() << ", " << axis_gt.y() << ", " << axis_gt.z() << "]\t" << "Angle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
 
 
-            // TODO: scale and compare with ground truth.
-            float ratio = 0.5f / relative_pose.translation().x();
-            int cnt = 0;
-            const float camera_height = 1.58f;
-            float center_to_floor = 0.0f;
-
             std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
             for (auto i : inliers_indexes) std::cout << i << " ";
             std::cout << std::endl;
@@ -263,16 +239,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 landmark.obs[tiny_scene.views[0]->id_view] = Observation(xL.col(inliers_indexes[i]), 0);
                 landmark.obs[tiny_scene.views[1]->id_view] = Observation(xR.col(inliers_indexes[i]), 0);
                 tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
-                
-                glm::vec3 point(inliers_X[i].z(), -inliers_X[i].x(), -inliers_X[i].y());
-                point = point * ratio;
-                //std::cout << "3D point:     " << inliers_X[i].x() << " " << inliers_X[i].y() << " " << inliers_X[i].z() << std::endl;
-                /*std::cout << "Match " << i << std::endl;
-                std::cout << "3D point:     " << std::setw(10) << point.x << " " << std::setw(10) << point.y << " " << std::setw(10) << point.z << std::endl;
-                std::cout << "3D point(gt): " << std::setw(10) << pos_gt[i].x << " " << std::setw(10) << pos_gt[i].y << " " << std::setw(10) << pos_gt[i].z << std::endl;
-                pos_gen.push_back(point);
-                std::cout << "Distance: " << glm::distance(pos_gt[i], point) << std::endl;
-                std::cout << std::endl;*/
             }
 
             //// RMSE
@@ -385,7 +351,7 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
     {
         // Find corresponding points
         matching::DistanceRatioMatch(
-            0.8, matching::BRUTE_FORCE_L2,
+            0.8f, matching::BRUTE_FORCE_L2,
             *regions_perImage.at(0).get(),
             *regions_perImage.at(1).get(),
             vec_PutativeMatches);
@@ -495,19 +461,10 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
 
                     std::cout << "[                R               |     T     ]" << std::endl;
                     std::cout << relative_pose.asMatrix() << std::endl;
-                    std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
-
-                    // TODO: scale and compare with ground truth.
-                    float ratio = 0.5f / relative_pose.translation().x();
-                    int cnt = 0;
-                    const float camera_height = 1.58f;
-                    float center_to_floor = 0.0f;
 
                     std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
                     for (auto i : inliers_indexes) std::cout << i << " ";
                     std::cout << std::endl;
-                    std::vector<glm::vec3> pos_gen;
-
 
                     // Add a new landmark (3D point with its image observations)
                     for (int i = 0; i < inliers_indexes.size(); ++i)
@@ -518,18 +475,14 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                         landmark.obs[tiny_scene.views[1]->id_view] = Observation(xR.col(inliers_indexes[i]), 0);
                         tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
 
-                        glm::vec3 point(inliers_X[i].z(), -inliers_X[i].x(), -inliers_X[i].y());
-                        point = point * ratio;
-
                         int ind = glm::round(xL.col(inliers_indexes[i]).y()) * 1024 + glm::round(xL.col(inliers_indexes[i]).x());
+                        const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10, pos_gt[ind]);
                         //std::cout << "X: " << xL.col(inliers_indexes[i]).x() << " Y: " << xL.col(inliers_indexes[i]).y() << " ind: " << ind << std::endl;
                         //std::cout << "3D point:     " << inliers_X[i].x() << " " << inliers_X[i].y() << " " << inliers_X[i].z() << std::endl;
                         //std::cout << "Match " << i << std::endl;
                         //std::cout << "3D point:     " << std::setw(10) << point.x << " " << std::setw(10) << point.y << " " << std::setw(10) << point.z << std::endl;
                         //std::cout << "3D point(gt): " << std::setw(10) << pos_gt[ind].x << " " << std::setw(10) << pos_gt[ind].y << " " << std::setw(10) << pos_gt[ind].z << std::endl;
-                        pos_gen.push_back(point);
-                        const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10, pos_gt[ind]);
                         //std::cout << "Distance: " << glm::distance(pos_gt[ind], point) << std::endl;
                         //std::cout << std::endl;
                     }

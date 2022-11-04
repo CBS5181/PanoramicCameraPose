@@ -1,6 +1,6 @@
 Folder name
 ------------------
-pano_xxx_PI means horizontal rotation theta.\
+pano_Rxx means horizontal rotation xx degrees.\
 pano_T(0,0_5,1) means translation T(0, 0.5, 1).\
 and so on.
 

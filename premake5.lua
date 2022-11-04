@@ -1,3 +1,5 @@
+include "Dependencies.lua"
+
 workspace "PanoramicCameraPose"
     architecture "x64"
 
@@ -5,8 +7,12 @@ workspace "PanoramicCameraPose"
     {
         "Release"
     }
+	startproject "PanoramicCameraPose"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+
+-- ImGui premake static lib
+include "PanoramicCameraPose/vendor/ImGui/include/imgui"
 
 project "PanoramicCameraPose"
     location "PanoramicCameraPose"
@@ -16,37 +22,47 @@ project "PanoramicCameraPose"
 	staticruntime "off" -- for multithread-specific and DLL-specific version of the run-time library
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
+    ignoredefaultlibraries { "LIBCMT" }
 
+     -- precompiled header
+    pchheader "pch.h"
+    pchsource "%{prj.name}/src/pch.cpp"
+   
     files
     {
         "%{prj.name}/src/**.h",
         "%{prj.name}/src/**.cpp",
 		"%{prj.name}/src/glad.c",
-		"%{prj.name}/vendor/imgui/include/**.h",
-		"%{prj.name}/vendor/imgui/include/**.cpp",
         "%{prj.name}/vendor/stb_image/**.h",
-		"%{prj.name}/vendor/stb_image/**.cpp"
+		"%{prj.name}/vendor/stb_image/**.cpp",
     }
 
     includedirs
     {
         "%{prj.name}/src",
-        "%{prj.name}/vendor/Glad/include",
-        "%{prj.name}/vendor/glfw/include",
-        "%{prj.name}/vendor/glm/include",
-        "%{prj.name}/vendor/imgui/include",
-        "%{prj.name}/vendor/eigen",
-        "%{prj.name}/vendor/stb_image",
-        "%{prj.name}/vendor/openMVG/include",
+        "%{IncludeDir.Glad}",
+        "%{IncludeDir.glfw}",
+        "%{IncludeDir.glm}",
+        "%{IncludeDir.ImGui}",
+        "%{IncludeDir.eigen}",
+        "%{IncludeDir.stb_image}",
+        "%{IncludeDir.OpenMVG}",
 		"C:/gurobi952/win64/include"
     }
+	
+    --filter {"files:%{prj.name}/vecdor/imgui/include/imgui/**.cpp or %{prj.name}/vendor/stb_image/**.cpp or %{prj.name}/src/glad.c"}
+	    --flags {"NoPCH"}
+    filter "files:PanoramicCameraPose/src/glad.c"
+        flags { "NoPCH" }
 
     filter "system:windows"
 		systemversion "latest"
 
     filter "configurations:Release"
+        
         defines 
         {
+            "_CRT_SECURE_NO_WARNINGS",
             "_WINDOWS",
             "NDEBUG",
             "NOMINMAX",
@@ -81,6 +97,7 @@ project "PanoramicCameraPose"
         {
             "opengl32.lib",
             "glfw3.lib",
+			"ImGui",
             "openMVG_fast.lib",
             "openMVG_features.lib",
             "openMVG_image.lib",
@@ -108,3 +125,4 @@ project "PanoramicCameraPose"
 			"{COPYFILE} %{wks.location}/%{prj.name}/vendor/OpenMVG/bin/Release/*.dll %{wks.location}bin/" .. outputdir .. "/%{prj.name}/"
 		}
             
+    

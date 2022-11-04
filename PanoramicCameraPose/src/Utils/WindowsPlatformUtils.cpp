@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "WindowsPlatformUtils.h"
 #include <Windows.h>
 #include <shobjidl.h> // folder 
@@ -5,9 +6,8 @@
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h> // GLFWwindow -> HWND
-#include <sstream>
 #include "Application.h"
-#include <filesystem>
+
 
 std::string FileDialogs::OpenFile(const char* filter)
 {
