@@ -4,6 +4,7 @@
 #include "GLFW/glfw3.h"
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
@@ -15,6 +16,7 @@ float lastFrame = 0.0f;
 
 bool firstMouse = true;
 bool canMouseRotate = false;
+static bool isFirstTime = true;
 
 float lastX = 512.0;
 float lastY = 256.0;
@@ -94,10 +96,30 @@ void Application::Run()
 
 			// Submit the DockSpace
 			ImGuiIO& io = ImGui::GetIO();
-			if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+			ImGuiID dockspace_id = ImGui::GetID("DockSpace Demo");
+			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+			if (isFirstTime)
 			{
-				ImGuiID dockspace_id = ImGui::GetID("DockSpace Demo");
-				ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+				ImGui::DockBuilderRemoveNode(dockspace_id);
+				ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace |
+					ImGuiDockNodeFlags_PassthruCentralNode);
+				ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+				static constexpr float ratioRight = 1.0f / 3.0f;
+
+				ImGuiID PanoLayerID = -1;
+				ImGuiID ToolLayerID = -1;
+				// Right split so the central node is the left(viewport)
+				ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, ratioRight, &ToolLayerID, &PanoLayerID);
+				ImGui::DockBuilderDockWindow("Viewport", PanoLayerID);
+				ImGui::DockBuilderDockWindow("Tool", ToolLayerID);
+				ImGui::DockBuilderFinish(dockspace_id);
+				isFirstTime = false;
+			}
+			else
+			{
+				ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 			}
 
 			if (m_MenubarCallback)
@@ -113,12 +135,8 @@ void Application::Run()
 				layer->OnUpdate();
 				layer->OnUIRender();
 			}
-
-
 			ImGui::End();
 		}
-
-
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -162,7 +180,7 @@ void Application::Init()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-
+	//glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	////maximize window?
 	//const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 	//if (mode)
