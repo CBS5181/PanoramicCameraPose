@@ -273,7 +273,7 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::Separator();
-	static int method_type = 0; //0: 8-point algorithm, 1:Gurobi
+	static int method_type = 1; //0: 8-point algorithm, 1:Gurobi
 	const char* solve_methods[] = { "8-point", "Gurobi" };
 	if (ImGui::Button("Calculate Relative Pose"))
 	{

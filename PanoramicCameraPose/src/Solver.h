@@ -26,4 +26,11 @@ public:
 		const openMVG::Mat3X& x2,
 		const std::vector<bool>& user_flags,
 		std::vector<openMVG::Mat3>* pvec_E);
+
+	//test:
+	static bool SolveEssentialMatrixGurobiMulti(
+		const openMVG::Mat3X& x1,
+		const openMVG::Mat3X& x2,
+		const std::vector<bool>& user_flags,
+		std::vector<openMVG::Mat3>* pvec_E);
 };
