@@ -486,7 +486,7 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
 
                         int ind = glm::round(xL.col(inliers_indexes[i]).y()) * 1024 + glm::round(xL.col(inliers_indexes[i]).x());
                         const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10, pos_gt[ind]);
+                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10);
                         //std::cout << "X: " << xL.col(inliers_indexes[i]).x() << " Y: " << xL.col(inliers_indexes[i]).y() << " ind: " << ind << std::endl;
                         //std::cout << "3D point:     " << inliers_X[i].x() << " " << inliers_X[i].y() << " " << inliers_X[i].z() << std::endl;
                         //std::cout << "Match " << i << std::endl;

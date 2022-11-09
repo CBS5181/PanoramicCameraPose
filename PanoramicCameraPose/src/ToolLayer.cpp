@@ -126,7 +126,8 @@ void ToolLayer::OnUIRender()
 	{
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, m_PanoPos_gt[ind], true/*is user-specified*/); // user pick weight = 100
+		/* Now Matching point by human doesn't have position information */
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, glm::vec3{0.0f}, glm::vec3{0.0f}, true/*is user-specified*/); // user pick weight = 100
 	}
 
 	// match table
@@ -141,7 +142,7 @@ void ToolLayer::OnUIRender()
 		// Otherwise by default the table will fit all available space, like a BeginChild() call.
 		ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 12);
 		static int selectIndex = -1;
-		if (ImGui::BeginTable("Matching points", 3, flags, outer_size))
+		if (ImGui::BeginTable("Matching points", 4, flags, outer_size))
 		{
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
 			ImGui::TableSetupColumn("Match #", ImGuiTableColumnFlags_None);
@@ -155,9 +156,9 @@ void ToolLayer::OnUIRender()
 				ImGui::TableNextRow();
 				auto& L = s_MatchPoints.left_pixels[row];
 				auto& R = s_MatchPoints.right_pixels[row];
-				auto& p = s_MatchPoints.positions[row];
+				auto& p = s_MatchPoints.left_positions[row];
 				const bool matchIsSelectd = selectIndex == row;
-				for (int column = 0; column < 3; column++)
+				for (int column = 0; column < 4; column++)
 				{
 					ImGui::TableSetColumnIndex(column);
 					switch (column)
@@ -184,7 +185,7 @@ void ToolLayer::OnUIRender()
 						ImGui::Text("(%.2f, %.2f)", R.x, R.y);
 						break;
 					case 3:
-						//ImGui::Text("(%.4f, %.4f, %.4f)", p.x, p.y, p.z);
+						ImGui::Text("(%.4f, %.4f, %.4f)", p.x, p.y, p.z);
 						break;
 					default:
 						ImGui::Text("Hello %d,%d", column, row);
@@ -200,8 +201,8 @@ void ToolLayer::OnUIRender()
 	// Load LED2-Net corners
 	if (ImGui::Button("Load Corners"))
 	{
-		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / "pred_corner_XY.txt";
-		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / "pred_corner_XY.txt";
+		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / "pred_corner.txt";
+		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / "pred_corner.txt";
 		if (corner_path01.empty() || corner_path02.empty())
 		{
 			std::cout << "Please Upload two panoramic images!\n";
@@ -219,17 +220,20 @@ void ToolLayer::OnUIRender()
 				// read pano01 corner pixels
 				std::istringstream iss(str);
 				glm::vec2 corner_pixel;
-				iss >> corner_pixel.x >> corner_pixel.y;
+				glm::vec3 pos;
+				iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
 
 				// read pano02 corner pixels
 				std::istringstream iss2(str2);
 				glm::vec2 corner_pixel2;
-				iss2 >> corner_pixel2.x >> corner_pixel2.y;
+				glm::vec3 pos2;
+				iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
 
 				// depth ground trugh from 3D scene
 				unsigned int ind = corner_pixel.y * IMG_WIDTH + corner_pixel.x;
 				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind], false/*not user-specified*/); // LED2Net weight = 10
+				//s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind], false/*not user-specified*/); // LED2Net weight = 10
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2, false/*not user-specified*/);
 				++cnt;
 			}
 		}
@@ -252,10 +256,11 @@ void ToolLayer::OnUIRender()
 				auto& left = s_MatchPoints.left_pixels;
 				auto& right = s_MatchPoints.right_pixels;
 				auto& weights = s_MatchPoints.weights;
-				auto& positions = s_MatchPoints.positions;
+				auto& left_positions = s_MatchPoints.left_positions;
+				auto& right_positions = s_MatchPoints.right_positions;
 				for (int i = 0; i < s_MatchPoints.size(); ++i)
 				{
-					file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << weights[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+					file << left[i].x << " " << left[i].y << " " << right[i].x << " " << right[i].y << " " << weights[i] << " " << left_positions[i].x << " " << left_positions[i].y << " " << left_positions[i].z << " " << right_positions[i].x << " " << right_positions[i].y << " " << right_positions[i].z << "\n";
 				}
 			}
 		}
@@ -271,13 +276,13 @@ void ToolLayer::OnUIRender()
 				std::string str;
 				glm::vec2 left, right;
 				uint32_t weight;
-				glm::vec3 pos;
+				glm::vec3 left_pos, right_pos;
 				while (std::getline(file, str))
 				{
 					std::istringstream iss(str);
-					iss >> left.x >> left.y >> right.x >> right.y >> weight >> pos.x >> pos.y >> pos.z;
+					iss >> left.x >> left.y >> right.x >> right.y >> weight >> left_pos.x >> left_pos.y >> left_pos.z >> right_pos.x >> right_pos.y >> right_pos.z;
 					const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-					s_MatchPoints.AddPoint(left, right, col, weight, pos);
+					s_MatchPoints.AddPoint(left, right, col, weight, left_pos, right_pos);
 				}
 			}
 			else

@@ -180,7 +180,7 @@ void Application::Init()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-
+	//glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	////maximize window?
 	//const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 	//if (mode)
