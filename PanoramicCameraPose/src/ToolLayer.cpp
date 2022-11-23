@@ -27,6 +27,43 @@ static void PopStyleCompact()
 	ImGui::PopStyleVar(2);
 }
 
+//convert spherical coordinate (azimuth,zenith) and 3D position, using LED2-net' assumption (NOT the standard spherical coordinate formula!)
+static glm::vec2 PosToSpherical(glm::vec3 p)
+{
+	p = glm::normalize(p);
+
+	glm::vec2 c;
+	c.y = acos(-p.y);  //zenith
+	//azimuth:
+	if (p.x > 0)
+	{
+		c.x = atan2(p.z, p.x);
+	}
+	else if (p.x < 0 && p.z >=0)
+	{
+		c.x = atan2(p.z, p.x) + glm::pi<float>();
+	}
+	else if (p.x < 0 && p.z < 0)
+	{
+		c.x = atan2(p.z, p.x) - glm::pi<float>();
+	}
+	else if (p.x == 0 && p.z > 0)
+	{
+		c.x = glm::pi<float>() / 2;
+	}
+	else if (p.x == 0 && p.z < 0)
+	{
+		c.x = -glm::pi<float>() / 2;
+	}
+	else  //undefined
+	{
+		std::cout << "[PosToSpherical] azimuth undefined!" << std::endl;
+		c.x = 0;
+	}
+
+	return c;
+}
+
 ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 {
 	srand(time(0));
@@ -294,9 +331,11 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::Separator();
+
 	std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
 	std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
 	static int method_type = 0; //0: 8-point algorithm, 1:Gurobi
+
 	const char* solve_methods[] = { "8-point", "Gurobi" };
 	if (ImGui::Button("Calculate Relative Pose"))
 	{
