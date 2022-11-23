@@ -242,19 +242,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             vars_LHS.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
         }
 
-        //for every x1 ceiling point, it can be: 1) matched to one of the x2 ceiling point, or 2) discarded
-        //however, addition touser-specified matching, in total we need (at least) 8 matchings
-        
-        //one-hot boolean flags for the ceiling-to-ceiling matching possibilities
-        //std::vector<GRBVar> vars_possibilities;
-        //int num_possibilities = num_non_user_matchings / 2;
-        //for (int i = 0; i < num_possibilities; i++)
-        //{
-         //   vars_possibilities.push_back(model.addVar(0, 1, 0, GRB_BINARY));
-        //}
-
-        //for every x1 ceiling point, it is either one of the matching possibility flags , or it is discarded
-
+        //for every x1 ceiling point, it is either one of the matching possibility flags , or it is discarde
         //boolean flags for relaxing certain rows of the essential matrix system
         //note: user-specified matchings are NOT relaxable
         std::vector<GRBVar> vars_relax;
@@ -265,11 +253,18 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
 
         model.update();
 
-        //obj: minimize sum of squared of LHS terms
+        //objective: minimize sum of squared of LHS terms
         GRBQuadExpr obj;
         for (int i = 0; i < x1.cols(); i++)
         {
-            obj += vars_LHS[i] * vars_LHS[i];
+            //higher weight fro user-specified matchings?
+            float weight = 1;
+            if (user_flags[i])
+            {
+                weight = 1000;
+            }
+
+            obj += weight * vars_LHS[i] * vars_LHS[i];
         }
         model.setObjective(obj);  //to minimize
 
@@ -326,10 +321,11 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             model.addConstr(term - vars_LHS[i] <= LARGE_NUM * vars_relax[i]);
         }
 
-        //because we need 8 matchings in total, 
+        //because we need at least 8 matchings in total, 
         //(# of non-user matchings - # of active relax flags) + # of user-specified matchings >= 8   -->
         //# of active relax flags <= # of non-user matchings + # of user-specified matchings - 8
         //# of active relax flags <= # total matchings - 8
+        if (x1.cols() >= 8)
         {
             GRBLinExpr sum;
             for (int i = 0; i < x1.cols(); i++)
@@ -337,9 +333,10 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
                 sum += vars_relax[i];
             }
 
-            model.addConstr(sum <= x1.cols() - 8);
+            //model.addConstr(sum <= x1.cols() - 8);
+            model.addConstr(sum <= 0);
         }
-        
+
         //e vector is unit vector
         {
             GRBQuadExpr term;
@@ -349,7 +346,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             }
 
             model.addQConstr(term == 1);
-        }        
+        }
 
         //solve!
         model.set(GRB_IntParam_NonConvex, 2);
@@ -380,14 +377,14 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
         std::cout << "relax flags: ";
         for (int i = 0; i < x1.cols(); i++)
         {
-            std::cout << vars_relax[i].get(GRB_DoubleAttr_X);
+            std::cout << vars_relax[i].get(GRB_DoubleAttr_X) << " ";
         }
         std::cout << std::endl;
 
         std::cout << "LHS terms: ";
         for (int i = 0; i < x1.cols(); i++)
         {
-            std::cout << vars_LHS[i].get(GRB_DoubleAttr_X);
+            std::cout << vars_LHS[i].get(GRB_DoubleAttr_X) << " ";
         }
 
         pvec_E->emplace_back(E);
@@ -398,4 +395,297 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     }
 }
 
+bool RelativePoseSolver::SolveEssentialMatrixGurobiMulti(
+    const Mat3X& x1,
+    const Mat3X& x2,
+    const std::vector<bool>& user_flags,
+    std::vector<Mat3>* pvec_E)
+{
+    assert(x1.rows() == x2.rows());
+    assert(x1.cols() == x2.cols());
+
+    //note: we assume layout (non-user) matchings are ceiling and then floor points (first half and second half)
+    int num_layout_matchings = 0;
+    for (int i = 0; i < user_flags.size(); i++)
+    {
+        if (!user_flags[i])
+            num_layout_matchings++;
+    }
+    std::cout << "num_layout_matchings:" << num_layout_matchings << std::endl;
+
+    //we prepare possible pair-wise combinations of layout x1/x2 records
+    std::vector<std::pair<int, int>> combinations;
+    std::map<int, std::vector<int>> record_combination_map;  //first: record index, second: its combinations
+    {
+        //collect ceiling and floor x1/x2 record indices
+        std::vector<int> ceilings;
+        std::vector<int> floors;
+
+        for (int i = 0; i < user_flags.size(); i++)
+        {
+            if (!user_flags[i])
+            {
+                if (ceilings.size() < num_layout_matchings / 2)
+                {
+                    ceilings.push_back(i);
+                }
+                else
+                {
+                    floors.push_back(i);
+                }
+            }
+        }
+
+        //ceiling-to-ceiling possible combinations:
+        for (int i = 0; i < ceilings.size(); i++)
+        {
+            for (int j = 0; j < ceilings.size(); j++)
+            {
+                record_combination_map[ceilings[i]].push_back(combinations.size());
+                combinations.push_back(std::make_pair(ceilings[i], ceilings[j]));
+            }
+        }
+
+        //floor-to-floor possible combinations:
+        for (int i = 0; i < floors.size(); i++)
+        {
+            for (int j = 0; j < floors.size(); j++)
+            {
+                record_combination_map[floors[i]].push_back(combinations.size());
+                combinations.push_back(std::make_pair(floors[i], floors[j]));
+            }
+        }
+    }
+
+    GRBEnv env = GRBEnv();
+    GRBModel model = GRBModel(env);
+
+    try
+    {
+        //variables: 9 entries in E, row major
+        std::vector<GRBVar> vars_E;
+        for (int i = 0; i < 9; i++)
+        {
+            vars_E.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //we have to consider every possible way of layout (ceiling-to-ceiling / floor-to-floor) matching,
+        //and every such way is a row of LHS terms of the essential matrix system Ae = 0:
+        std::vector<GRBVar> vars_LHS;  // slack variables for each layout LHS term
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            vars_LHS.push_back(model.addVar(-GRB_INFINITY, GRB_INFINITY, 0, GRB_CONTINUOUS));
+        }
+
+        //for every x1 ceiling point, it is either one of the matching possibility flags , or it is discarded
+
+        //boolean flags for taking certain rows of the essential matrix system
+        std::vector<GRBVar> vars_take;
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            vars_take.push_back(model.addVar(0, 1, 0, GRB_BINARY));
+        }
+
+        model.update();
+
+        //objective: minimize sum of squared of layout LHS terms
+        GRBQuadExpr obj;
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            obj += vars_LHS[i] * vars_LHS[i];
+        }
+        model.setObjective(obj);  //to minimize
+
+        ////constraints: 
+
+        //LHS term slack variable constraint:
+        const float LARGE_NUM = 1000;
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            int x1_index = combinations[i].first;
+            int x2_index = combinations[i].second;
+
+            std::vector<float> row;  //LHS weight terms
+            row.push_back(x1(0, x1_index) * x2(0, x2_index));
+            row.push_back(x1(1, x1_index) * x2(0, x2_index));
+            row.push_back(x1(2, x1_index) * x2(0, x2_index));
+            row.push_back(x1(0, x1_index) * x2(1, x2_index));
+            row.push_back(x1(1, x1_index) * x2(1, x2_index));
+            row.push_back(x1(2, x1_index) * x2(1, x2_index));
+            row.push_back(x1(0, x1_index) * x2(2, x2_index));
+            row.push_back(x1(1, x1_index) * x2(2, x2_index));
+            row.push_back(x1(2, x1_index) * x2(2, x2_index));
+
+            //std::cout << row[0] << " " << row[1] << " " << row[2] << " " << row[3] << " " << row[4] << " "
+            //    << row[5] << " " << row[6] << " " << row[7] << " " << row[8] << std::endl;
+
+            GRBLinExpr term;
+            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+            {
+                term += row[j] * vars_E[j];
+            }
+
+            //note: if the corresponding "take" flag is off, this constraint is dropped
+            model.addConstr((term - vars_LHS[i]) >= (-LARGE_NUM * (1 - vars_take[i])));
+            model.addConstr((term - vars_LHS[i]) <= (LARGE_NUM * (1 - vars_take[i])));
+        }
+
+        //for every x1 record's combinations, at most one of them is true
+        for (std::map<int, std::vector<int>>::iterator itr = record_combination_map.begin(); itr != record_combination_map.end(); itr++)
+        {
+            GRBLinExpr sum;
+
+            std::vector<int>& cs = (*itr).second;
+            for (int i = 0; i < cs.size(); i++)
+            {
+                sum += vars_take[cs[i]];
+            }
+
+            model.addConstr(sum <= 1);
+            //model.addConstr(sum == cs.size());
+        }
+
+        //layout combinatorics: for entry of the same order of every x1 record's combinations, they are the same
+        {
+            std::vector< std::vector<int> > records_at_same_orders(record_combination_map.begin()->second.size());
+            for (std::map<int, std::vector<int>>::iterator itr = record_combination_map.begin(); itr != record_combination_map.end(); itr++)
+            {
+                std::vector<int>& cs = (*itr).second;
+                if (cs.size() == records_at_same_orders.size())
+                {
+                    for (int i = 0; i < cs.size(); i++)
+                    {
+                        records_at_same_orders[i].push_back(cs[i]);
+                    }
+                }
+            }
+
+            for (int i = 0; i < records_at_same_orders.size(); i++)
+            {
+                //the "take" variables of these records are all the same
+                //we equal them circularly
+                std::vector<int>& records = records_at_same_orders[i];
+                for (int j = 0; j < records.size(); j++)
+                {
+                    int r0 = records[j];
+                    int r1 = records[(j + 1) % records.size()];
+                    model.addConstr(vars_take[r0] == vars_take[r1]);
+                }
+            }
+        }
+
+        //together with user-specified matchings, we need at least 8 matchings total
+        //so sum of active "take" flags should >= 8 - # of user matchings
+        {
+            GRBLinExpr sum;
+            for (int i = 0; i < vars_take.size(); i++)
+            {
+                sum += vars_take[i];
+            }
+            model.addConstr(sum >= 8 - (x1.cols() - num_layout_matchings));
+        }
+
+        //user-specified matchings: as hard constraints
+        for (int i = 0; i < x1.cols(); i++)
+        {
+            if (user_flags[i])
+            {
+                std::vector<float> row;  //LHS weights
+                row.push_back(x1(0, i) * x2(0, i));
+                row.push_back(x1(1, i) * x2(0, i));
+                row.push_back(x1(2, i) * x2(0, i));
+                row.push_back(x1(0, i) * x2(1, i));
+                row.push_back(x1(1, i) * x2(1, i));
+                row.push_back(x1(2, i) * x2(1, i));
+                row.push_back(x1(0, i) * x2(2, i));
+                row.push_back(x1(1, i) * x2(2, i));
+                row.push_back(x1(2, i) * x2(2, i));
+
+                GRBLinExpr term;
+                for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+                {
+                    term += row[j] * vars_E[j];
+                }
+
+                model.addConstr(term == 0);
+            }
+        }
+
+        //e vector is unit vector
+        {
+            GRBQuadExpr term;
+            for (int j = 0; j < 9; j++)
+            {
+                term += vars_E[j] * vars_E[j];
+            }
+
+            model.addQConstr(term == 1);
+        }
+
+        //solve!
+        model.set(GRB_IntParam_NonConvex, 2);
+
+        model.optimize();
+        int status = model.get(GRB_IntAttr_Status);
+        if (status == 3)
+        {
+            //infeasible
+            std::cout << "[SolveEssentialMatrixGurobi] the problem is infeasible." << std::endl;
+            return false;
+        }
+        else if (status != 9/*time-out*/ && status != 2 && status != 11 && status != 13)
+        {
+            //some other failure
+            std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
+            return false;
+        }
+
+        //get results
+        Mat3 E;
+        for (int i = 0; i < 9; i++)
+        {
+            E(i / 3, i % 3) = vars_E[i].get(GRB_DoubleAttr_X);
+        }
+
+        //report results
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            std::cout << combinations[i].first << "-" << combinations[i].second << ": take=" <<
+                vars_take[i].get(GRB_DoubleAttr_X) << " LHS=" << vars_LHS[i].get(GRB_DoubleAttr_X) << std::endl;
+        }
+
+        //debug:
+        for (int i = 0; i < combinations.size(); i++)
+        {
+            int x1_index = combinations[i].first;
+            int x2_index = combinations[i].second;
+
+            std::vector<float> row;  //LHS weight terms
+            row.push_back(x1(0, x1_index) * x2(0, x2_index));
+            row.push_back(x1(1, x1_index) * x2(0, x2_index));
+            row.push_back(x1(2, x1_index) * x2(0, x2_index));
+            row.push_back(x1(0, x1_index) * x2(1, x2_index));
+            row.push_back(x1(1, x1_index) * x2(1, x2_index));
+            row.push_back(x1(2, x1_index) * x2(1, x2_index));
+            row.push_back(x1(0, x1_index) * x2(2, x2_index));
+            row.push_back(x1(1, x1_index) * x2(2, x2_index));
+            row.push_back(x1(2, x1_index) * x2(2, x2_index));
+
+            float val = 0;
+            for (int j = 0; j < 9; j++)  //w.r.t. a row of A
+            {
+                val += row[j] * vars_E[j].get(GRB_DoubleAttr_X);
+            }
+
+            std::cout << "val:" << val << std::endl;
+
+        }
+
+        pvec_E->emplace_back(E);
+    }
+    catch (GRBException e)
+    {
+        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
+    }
+}
 
