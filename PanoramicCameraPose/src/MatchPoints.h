@@ -30,6 +30,7 @@ struct MatchPoints
 
 	void ClearPixel()
 	{
+		if (cnt == 0) return ;
 		left_pixels.clear();
 		right_pixels.clear();
 		v_color.clear();

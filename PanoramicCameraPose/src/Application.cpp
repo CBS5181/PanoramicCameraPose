@@ -21,6 +21,9 @@ static bool isFirstTime = true;
 float lastX = 512.0;
 float lastY = 256.0;
 
+static bool isDragDrop = false;
+std::filesystem::path g_FilePath;
+
 Application* Application::s_Instance = nullptr;
 
 Application::Application(const ApplicationSpecification& applicationSpecification)
@@ -138,6 +141,18 @@ void Application::Run()
 			ImGui::End();
 		}
 
+		// Bug fix: drag and drop source should be submit after calling ImGui::NewFrame().
+		{
+			if (isDragDrop && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
+			{
+				const wchar_t* itemPath = g_FilePath.c_str();
+				ImGui::SetDragDropPayload("FILES", itemPath, (wcslen(itemPath) + 1) * sizeof(wchar_t));
+				ImGui::EndDragDropSource();
+				isDragDrop = false;
+			}
+		}
+
+		ImGui::EndFrame();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -374,14 +389,8 @@ void Application::key_press_callback(GLFWwindow* window, int key, int scancode, 
 
 void Application::drop_callback(GLFWwindow* window, int count, const char** paths)
 {
-
-	for (int i = 0; i < count; ++i)
-	{
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern))
-		{
-			ImGui::SetDragDropPayload("FILES", paths[i], strlen(paths[i]) + 1);
-			ImGui::EndDragDropSource();
-		}
-	}
+	// current support only one file drop
+	g_FilePath = paths[0];
+	isDragDrop = true;
 }
 	

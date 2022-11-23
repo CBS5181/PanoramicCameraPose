@@ -10,6 +10,12 @@ public:
 	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::vector<glm::vec3>& pos_gt, MatchPoints& match_points);
 };
 
+class LoFTRSolver
+{
+public:
+	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR, MatchPoints& match_points);
+};
+
 class RelativePoseSolver
 {
 public:

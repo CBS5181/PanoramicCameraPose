@@ -3,7 +3,7 @@
 #include "imgui/imgui.h"
 #include "PanoLayer.h"
 #include <ctime>
-#include "Solver.h"
+#include "Solvers/Solver.h"
 #include "Utils/WindowsPlatformUtils.h"
 #include <glm/gtx/string_cast.hpp>
 
@@ -45,8 +45,10 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	}
 
 	// set default filepath for test quickly
-	s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
-	s_FileManager.SetPano02Filepath("assets/test_data/pano_R90_T(0,0_5,0)");
+	/*s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
+	s_FileManager.SetPano02Filepath("assets/test_data/pano_R90_T(0,0_5,0)");*/
+	s_FileManager.SetPano01Filepath("assets/test_data/ZInD/01/pano_orig");
+	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(-0_692,0_28,0)");
 }
 
 void ToolLayer::OnUIRender()
@@ -72,7 +74,7 @@ void ToolLayer::OnUIRender()
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("FILES"))
 			{
-				fs::path filepath((const char*)payload->Data);
+				const wchar_t* filepath = (const wchar_t*)payload->Data;
 				if (fs::is_directory(filepath)) // only accept folder
 				{
 					s_FileManager.SetPano01Filepath(filepath);
@@ -98,7 +100,7 @@ void ToolLayer::OnUIRender()
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("FILES"))
 			{
-				fs::path filepath((const char*)payload->Data);
+				const wchar_t* filepath = (const wchar_t*)payload->Data;
 				if (fs::is_directory(filepath))
 				{
 					s_FileManager.SetPano02Filepath(filepath);
@@ -292,21 +294,25 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::Separator();
+	std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
+	std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
 	static int method_type = 0; //0: 8-point algorithm, 1:Gurobi
 	const char* solve_methods[] = { "8-point", "Gurobi" };
 	if (ImGui::Button("Calculate Relative Pose"))
 	{
-		std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
-		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
 		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints, method_type);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SIFT")) // SIFT Solver
 	{
 		s_MatchPoints.ClearPixel();
-		std::string left_img = s_FileManager.GetPano01Filepath().string() + "/color.jpg";
-		std::string right_img = s_FileManager.GetPano02Filepath().string() + "/color.jpg";
 		SIFTSolver::Solve(left_img.c_str(), right_img.c_str(), m_PanoPos_gt, s_MatchPoints);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("LoFTR")) // LoFTR Solver
+	{
+		s_MatchPoints.ClearPixel();
+		LoFTRSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints);
 	}
 	ImGui::Separator();
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
