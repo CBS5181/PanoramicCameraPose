@@ -85,7 +85,7 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	/*s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
 	s_FileManager.SetPano02Filepath("assets/test_data/pano_R90_T(0,0_5,0)");*/
 	s_FileManager.SetPano01Filepath("assets/test_data/ZInD/01/pano_orig");
-	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(-0_692,0_28,0)");
+	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
 }
 
 void ToolLayer::OnUIRender()

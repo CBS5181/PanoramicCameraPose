@@ -20,23 +20,9 @@ namespace Utils
         return ret;
     }
 
-    //float WeightedRMSE(const std::vector<glm::vec3>& pos_gt, const std::vector<glm::vec3>& pos_gen, const std::vector<uint32_t>& weights)
-    //{
-    //    float sum = 0.0f;
-    //    int weightSum = 0;
-    //    for (int i = 0; i < pos_gt.size(); ++i)
-    //    {
-    //        float d = glm::distance(pos_gt[i], pos_gen[i]);
-    //        float weightedSquareError = weights[i] * d * d;
-    //        sum += weightedSquareError;
-    //        weightSum += weights[i];
-    //    }
-    //    return std::sqrt(sum / weightSum);
-    //}
-
     openMVG::geometry::Pose3 ParseStrToPose(std::string& str)
     {
-        // example: pano_R90_T(0,0_5,0) => rotate(90 degree) and Translation (0, 0.5, 0)
+        // example: pano_R90_T(0_0,0_5,0_0) => rotate(90 degree) and Translation (0, 0.5, 0)
         // Step 1: Separate rotation angle and translation
         std::replace(str.begin(), str.end(), '_', '.');
         std::regex pattern{ R"([+-]?[0-9]*[.]?[0-9]+)" };
@@ -50,20 +36,21 @@ namespace Utils
         double x = std::stod(matches[1]);
         double y = std::stod(matches[2]);
         double z = std::stod(matches[3]);
-
+        
         // Transition to OpenMVG coordinate system
         Eigen::Matrix3d transition;
-        transition << 0.0, -1.0, 0.0,
-            0.0, 0.0, -1.0,
-            1.0, 0.0, 0.0;
-        openMVG::Vec3 rotaAxis = transition * openMVG::Vec3(0.0, 0.0, 1.0);
+        transition <<   -1.0, 0.0, 0.0,      // zind: change x to -x, y to z axis, and z to -y axis
+                        0.0, 0.0, -1.0,
+                        0.0, 1.0, 0.0;
+        // zind座標系下的z軸為旋轉軸，因此zind的相對旋轉角度 順時鐘為正 逆時鐘為負
+        openMVG::Vec3 rotaAxis = transition * openMVG::Vec3(0.0, 0.0, 1.0); 
         Eigen::AngleAxisd aa(glm::radians(degree), rotaAxis);
         openMVG::Mat3 R = aa.toRotationMatrix();
-
+        
+        Eigen::IOFormat vfmt(6, 0, "", "", "", "", "[", "]");
         openMVG::Vec3 t{ x, y, z };
         t = transition * t;
         t.normalize();
-
 
         return openMVG::geometry::Pose3{ R, t };
     }
@@ -75,6 +62,7 @@ namespace Utils
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_est.asMatrix().format(fmt) << std::endl << std::endl;
 
+        //std::cout << "pose center(normalized): " << pose_est.center().normalized() << std::endl;
         // calculate rotation angle and axis from rotation martix
         Eigen::AngleAxisd angleAxis(pose_est.rotation());
         Eigen::Vector3d& axis = angleAxis.axis();
@@ -84,6 +72,7 @@ namespace Utils
         std::cout << "Ground Truth Pose\n";
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_gt.asMatrix().format(fmt) << std::endl << std::endl;
+        //std::cout << "pose_gt center(normalized): " << pose_gt.center().normalized() << std::endl;
         Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
         Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
         std::cout << "Rotation Axis: " << axis_gt.format(vfmt) << "\tAngle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;

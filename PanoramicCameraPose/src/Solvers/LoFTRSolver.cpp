@@ -140,7 +140,7 @@ void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, Ma
 
             // Robust estimation of the Essential matrix and its precision
             Mat3 E;
-            const double precision = D2R(4.0);  //std::numeric_limits<double>::infinity(); //
+            const double precision = std::numeric_limits<double>::infinity(); // D2R(4.0f)
             const std::pair<double, double> ACRansacOut =
                 ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
             const double& threshold = ACRansacOut.first;
@@ -163,13 +163,13 @@ void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, Ma
                 bVertical
             );
 
-            if (vec_inliers.size() > 60) // 60 is used to filter solution with few common geometric matches (unstable solution)
+            if (vec_inliers.size() > 8) // 60 is used to filter solution with few common geometric matches (unstable solution)
             {
                 // Decompose the essential matrix and keep the best solution (if any)
                 geometry::Pose3 relative_pose;
                 std::vector<uint32_t> inliers_indexes;
                 std::vector<Vec3> inliers_X;
-
+                
                 if (RelativePoseFromEssential(xL_spherical,
                     xR_spherical,
                     E, vec_inliers,
