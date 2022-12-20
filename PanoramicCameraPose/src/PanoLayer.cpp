@@ -146,9 +146,9 @@ void PanoLayer::OnUIRender()
     float my_tex_h = (float)left_image.height * m_ratio;
 
     ImGui::Image(my_left_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
+    //SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2); // TODO: fix
     ImGui::Image(my_right_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
+    //SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     static float sz = 30.0f;

@@ -1,0 +1,23 @@
+"scale_meters_per_coordinate": {
+        "floor_01": 3.216227519319018,
+        "floor_02": 3.216227519319018
+    }
+
+"floor_plan_transformation": {
+                            "rotation": 226.5906193222814,
+                            "translation": [
+                                1.0083330877476677,
+                                -0.24399723485225822
+                            ],
+                            "scale": 0.4042260417272217
+                        }
+
+
+"floor_plan_transformation": {
+                            "rotation": -94.90326281484852,
+                            "translation": [
+                                0.31627464035382524,
+                                0.036583744768215964
+                            ],
+                            "scale": 0.4042260417272217
+                        }

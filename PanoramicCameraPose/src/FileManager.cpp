@@ -5,10 +5,7 @@
 bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height)
 {
 	std::filesystem::path p = filepath;
-	if (std::filesystem::is_directory(p))
-	{
-		p = p / "color.jpg";
-	}
+	p = p / "color.jpg";
 	auto s = p.string();
 	const char* filename = s.c_str();
 	// Load from file
