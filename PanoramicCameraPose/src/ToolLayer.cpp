@@ -27,31 +27,39 @@ static void PopStyleCompact()
 	ImGui::PopStyleVar(2);
 }
 
-//convert spherical coordinate (azimuth,zenith) and 3D position, using LED2-net' assumption (NOT the standard spherical coordinate formula!)
-static glm::vec2 PosToSpherical(glm::vec3 p)
+//convert spherical coordinate (azimuth,zenith) and 3D position by the standard spherical coordinate formulas
+//flip_x: flip x's sign for LED2-Net's coordinate space
+static glm::vec2 PosToSpherical(glm::vec3 p, bool flip_x = true)
 {
 	p = glm::normalize(p);
 
+	//flip x?
+	if (flip_x)
+	{
+		p.x = -p.x;
+	}
+
 	glm::vec2 c;
-	c.y = acos(-p.y);  //zenith
+	c.y = acos(p.z);  //zenith
+
 	//azimuth:
 	if (p.x > 0)
 	{
-		c.x = atan2(p.z, p.x);
+		c.x = atan(p.y / p.x);
 	}
-	else if (p.x < 0 && p.z >=0)
+	else if (p.x < 0 && p.y >= 0)
 	{
-		c.x = atan2(p.z, p.x) + glm::pi<float>();
+		c.x = atan(p.y / p.x) + glm::pi<float>();
 	}
-	else if (p.x < 0 && p.z < 0)
+	else if (p.x < 0 && p.y < 0)
 	{
-		c.x = atan2(p.z, p.x) - glm::pi<float>();
+		c.x = atan(p.y / p.x) - glm::pi<float>();
 	}
-	else if (p.x == 0 && p.z > 0)
+	else if (p.x == 0 && p.y > 0) 
 	{
 		c.x = glm::pi<float>() / 2;
 	}
-	else if (p.x == 0 && p.z < 0)
+	else if (p.x == 0 && p.y < 0)
 	{
 		c.x = -glm::pi<float>() / 2;
 	}
@@ -61,7 +69,21 @@ static glm::vec2 PosToSpherical(glm::vec3 p)
 		c.x = 0;
 	}
 
+	//azimuth don't be negative
+	if (c.x < 0)
+		c.x = 2 * glm::pi<float>() + c.x;
+
 	return c;
+}
+
+//convert a standard spherical coord to LED2-net's spherical coord
+static glm::vec2 SphericalToXY(glm::vec2 s, float width, float height)
+{
+	glm::vec2 xy;
+	xy.x = s.x / (2 * glm::pi<float>()) * width;
+	xy.y = s.y / (glm::pi<float>()) * height;
+
+	return xy;
 }
 
 ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
@@ -164,7 +186,8 @@ void ToolLayer::OnUIRender()
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
 		/* Now Matching point by human doesn't have position information */
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, glm::vec3{0.0f}, glm::vec3{0.0f}, true/*is user-specified*/); // user pick weight = 100
+		std::pair<int, int> index = std::make_pair(-1, -1); //index for user-specified
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, index, glm::vec3{0.0f}, glm::vec3{0.0f});
 	}
 
 	// match table
@@ -251,7 +274,6 @@ void ToolLayer::OnUIRender()
 			std::ifstream file2(corner_path02);
 
 			std::string str, str2;
-			unsigned int cnt = 0;
 			while (std::getline(file, str) && std::getline(file2, str2))
 			{
 				// read pano01 corner pixels
@@ -266,12 +288,12 @@ void ToolLayer::OnUIRender()
 				glm::vec3 pos2;
 				iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
 
-				// depth ground trugh from 3D scene
-				unsigned int ind = corner_pixel.y * IMG_WIDTH + corner_pixel.x;
 				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				//s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind], false/*not user-specified*/); // LED2Net weight = 10
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2, false/*not user-specified*/);
-				++cnt;
+				
+				//which layout side, 0-th point on the side  
+				std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
+
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, index, pos, pos2);
 			}
 		}
 	}
@@ -279,6 +301,67 @@ void ToolLayer::OnUIRender()
 	if (ImGui::Button("Rotate Matching")) // Rotate right image corner for correct matching
 	{
 		s_MatchPoints.RotateRightPixels();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Subdivide"))
+	{
+		//add intermediate points on edges of the layout?
+		//assume the original points are upper ones and then lower ones
+
+		const int subd = 3;  //how many subdivided vertices to add alone an edge?
+		int num_corners = s_MatchPoints.left_positions.size() / 2;
+
+		//new set of MatchPoints
+		MatchPoints new_points;
+		
+		//ceiling then floor:
+		for (int Case = 0; Case < 2; Case++)
+		{
+			for (int i = 0; i < num_corners; i++)
+			{
+				int offset = 0;
+				if (Case == 1)
+					offset += num_corners;  //the latter half
+
+				//index of this point pair:
+				std::pair index(0, 0);
+
+				//add the original point (on the begin):
+				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i], 
+					s_MatchPoints.right_pixels[offset + i],
+					s_MatchPoints.v_color[offset + i], 10, index, 
+					s_MatchPoints.left_positions[offset + i], 
+					s_MatchPoints.right_positions[offset + i]);
+
+				//create and add the new points:
+
+				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
+				glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
+				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
+				glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
+				for (int j = 0; j < subd; j++)
+				{
+					//left:
+					glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 xy = SphericalToXY(PosToSpherical(p), 1024, 512);
+
+					//right:
+					glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 XY = SphericalToXY(PosToSpherical(P), 1024, 512);
+
+					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
+
+					//index of this point pair:
+					std::pair index(offset + i, j + 1);
+
+					new_points.AddPoint(xy, XY, col, 10, index, p, P);
+				}
+			}
+		}
+
+		s_MatchPoints = new_points;
 	}
 
 	// Save/Load temporary matching points
@@ -319,7 +402,10 @@ void ToolLayer::OnUIRender()
 					std::istringstream iss(str);
 					iss >> left.x >> left.y >> right.x >> right.y >> weight >> left_pos.x >> left_pos.y >> left_pos.z >> right_pos.x >> right_pos.y >> right_pos.z;
 					const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-					s_MatchPoints.AddPoint(left, right, col, weight, left_pos, right_pos);
+					
+					std::pair<int, int> index = std::make_pair(0, 0);  //TODO
+
+					s_MatchPoints.AddPoint(left, right, col, weight, index, left_pos, right_pos);
 				}
 			}
 			else

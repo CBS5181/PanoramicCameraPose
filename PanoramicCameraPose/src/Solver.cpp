@@ -199,8 +199,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         }
         else if (method == 1)  //solve essential matrix by Gurobi?
         {
-            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
-            //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.user_flags, &Es);
+            //SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
+            SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
         }
 
         std::cout << "Solved essential matrix:" << std::endl << Es[0] << std::endl;
@@ -486,8 +486,9 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                         tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
 
                         int ind = glm::round(xL.col(inliers_indexes[i]).y()) * 1024 + glm::round(xL.col(inliers_indexes[i]).x());
+                        std::pair<int, int> index(-1, -1);  //user-specified?
                         const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10);
+                        match_points.AddPoint(glm::vec2(xL.col(inliers_indexes[i]).x(), xL.col(inliers_indexes[i]).y()), glm::vec2(xR.col(inliers_indexes[i]).x(), xR.col(inliers_indexes[i]).y()), col, 10, index);
                         //std::cout << "X: " << xL.col(inliers_indexes[i]).x() << " Y: " << xL.col(inliers_indexes[i]).y() << " ind: " << ind << std::endl;
                         //std::cout << "3D point:     " << inliers_X[i].x() << " " << inliers_X[i].y() << " " << inliers_X[i].z() << std::endl;
                         //std::cout << "Match " << i << std::endl;
@@ -734,61 +735,66 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
 bool RelativePoseSolver::SolveEssentialMatrixGurobiMulti(
     const Mat3X& x1,
     const Mat3X& x2,
-    const std::vector<bool>& user_flags,
+    const std::vector<std::pair<int,int>>& indices,
     std::vector<Mat3>* pvec_E)
 {
     assert(x1.rows() == x2.rows());
     assert(x1.cols() == x2.cols());
 
     //note: we assume layout (non-user) matchings are ceiling and then floor points (first half and second half)
-    int num_layout_matchings = 0;
-    for (int i = 0; i < user_flags.size(); i++)
+    int num_sides = 0;
+    for (int i = 0; i < indices.size(); i++)
     {
-        if (!user_flags[i])
-            num_layout_matchings++;
+        std::cout << "index# " << i << ": " << indices[i].first << "," << indices[i].second << std::endl;
+
+        if (indices[i].first >= 0 && num_sides < indices[i].first + 1)
+            num_sides = indices[i].first + 1;
     }
-    std::cout << "num_layout_matchings:" << num_layout_matchings << std::endl;
+    num_sides /= 2;  //half and half
+    std::cout << "num_sides:" << num_sides << std::endl;
     
     //we prepare possible pair-wise combinations of layout x1/x2 records
     std::vector<std::pair<int, int>> combinations;
     std::map<int, std::vector<int>> record_combination_map;  //first: record index, second: its combinations
     {
-        //collect ceiling and floor x1/x2 record indices
-        std::vector<int> ceilings;
-        std::vector<int> floors;
-
-        for (int i = 0; i < user_flags.size(); i++)
+        for (int i = 0; i < indices.size(); i++)
         {
-            if (!user_flags[i])
+            std::pair<int, int> index0 = indices[i];
+            if (index0.second < 0)
+                continue;  //skip user-specified records
+
+            //let's find its possible matching records
+            for (int j = 0; j < indices.size(); j++)
             {
-                if (ceilings.size() < num_layout_matchings / 2)
+                std::pair<int, int> index1 = indices[j];
+                if (index1.second < 0)
+                    continue;  //skip user-specified records
+
+                //first half is ceiling, second half is floor
+                if (index0.first < num_sides && index1.first < num_sides)
                 {
-                    ceilings.push_back(i);
+                    //possible ceil-ceill combinations
+                    if (index0.second == index1.second)
+                    {
+                        //save j as i's combination 
+                        record_combination_map[i].push_back(j);
+
+                        //gotcha!
+                        combinations.push_back(std::make_pair(i, j));
+                    }
                 }
-                else
+                else if (index0.first >= num_sides && index1.first >= num_sides)
                 {
-                    floors.push_back(i);
+                    //floor-floor combinations
+                    if (index0.second == index1.second)
+                    {
+                        //save j as i's combination 
+                        record_combination_map[i].push_back(j);
+
+                        //gotcha!
+                        combinations.push_back(std::make_pair(i, j));
+                    }
                 }
-            }
-        }
-
-        //ceiling-to-ceiling possible combinations:
-        for (int i = 0; i < ceilings.size(); i++)
-        {
-            for (int j = 0; j < ceilings.size(); j++)
-            {
-                record_combination_map[ceilings[i]].push_back(combinations.size());
-                combinations.push_back(std::make_pair(ceilings[i], ceilings[j]));
-            }
-        }
-
-        //floor-to-floor possible combinations:
-        for (int i = 0; i < floors.size(); i++)
-        {
-            for (int j = 0; j < floors.size(); j++)
-            {
-                record_combination_map[floors[i]].push_back(combinations.size());
-                combinations.push_back(std::make_pair(floors[i], floors[j]));
             }
         }
     }
@@ -871,14 +877,18 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobiMulti(
         {
             GRBLinExpr sum;
 
+            std::cout << "map " << (*itr).first << ":";
+
             std::vector<int>& cs = (*itr).second;
             for (int i = 0; i < cs.size(); i++)
             {
+                std::cout << cs[i] << ",";
                 sum += vars_take[cs[i]];
             }
+            std::cout << std::endl;
 
-            model.addConstr(sum <= 1);
-            //model.addConstr(sum == cs.size());
+            //model.addConstr(sum <= 1);
+            model.addConstr(sum == 1);
         }
 
         //layout combinatorics: for entry of the same order of every x1 record's combinations, they are the same
@@ -904,27 +914,30 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobiMulti(
                 for (int j = 0; j < records.size(); j++)
                 {
                     int r0 = records[j];
+
+                    std::cout << r0 << "-";
                     int r1 = records[(j + 1) % records.size()];
                     model.addConstr(vars_take[r0] == vars_take[r1]);
                 }
+                std::cout << std::endl;
             }
         }
 
         //together with user-specified matchings, we need at least 8 matchings total
         //so sum of active "take" flags should >= 8 - # of user matchings
-        {
+        /*{
             GRBLinExpr sum;
             for (int i = 0; i < vars_take.size(); i++)
             {
                 sum += vars_take[i];
             }
             model.addConstr(sum >= 8 - (x1.cols() - num_layout_matchings));
-        }
+        }*/
 
         //user-specified matchings: as hard constraints
         for (int i = 0; i < x1.cols(); i++)
         {
-            if (user_flags[i])
+            if (indices[i].first == -1)
             {
                 std::vector<float> row;  //LHS weights
                 row.push_back(x1(0, i) * x2(0, i));
