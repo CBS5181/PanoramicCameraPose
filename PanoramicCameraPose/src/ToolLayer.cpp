@@ -104,8 +104,8 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	}
 
 	// set default filepath for test quickly
-	/*s_FileManager.SetPano01Filepath("assets/test_data/pano_orig");
-	s_FileManager.SetPano02Filepath("assets/test_data/pano_R90_T(0,0_5,0)");*/
+	//s_FileManager.SetPano01Filepath("assets/test_data/Replica/01/pano_orig");
+	//s_FileManager.SetPano02Filepath("assets/test_data/Replica/01/pano_R90_T(0,0_5,0)");
 	s_FileManager.SetPano01Filepath("assets/test_data/ZInD/01/pano_orig");
 	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
 }
@@ -188,8 +188,7 @@ void ToolLayer::OnUIRender()
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
 		/* Now Matching point by human doesn't have position information */
-		std::pair<int, int> index = std::make_pair(-1, -1); //index for user-specified
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, index, glm::vec3{0.0f}, glm::vec3{0.0f});
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, glm::vec3{0.0f}, glm::vec3{0.0f});
 	}
 
 	// match table
@@ -295,7 +294,7 @@ void ToolLayer::OnUIRender()
 				//which layout side, 0-th point on the side  
 				std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
 
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, index, pos, pos2);
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
 			}
 		}
 	}
@@ -325,13 +324,11 @@ void ToolLayer::OnUIRender()
 				if (Case == 1)
 					offset += num_corners;  //the latter half
 
-				//index of this point pair:
-				std::pair index(0, 0);
-
 				//add the original point (on the begin):
 				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i], 
 					s_MatchPoints.right_pixels[offset + i],
-					s_MatchPoints.v_color[offset + i], 10, index, 
+					s_MatchPoints.v_color[offset + i], 
+					10, 
 					s_MatchPoints.left_positions[offset + i], 
 					s_MatchPoints.right_positions[offset + i]);
 
@@ -358,7 +355,7 @@ void ToolLayer::OnUIRender()
 					//index of this point pair:
 					std::pair index(offset + i, j + 1);
 
-					new_points.AddPoint(xy, XY, col, 10, index, p, P);
+					new_points.AddPoint(xy, XY, col, 10, p, P);
 				}
 			}
 		}
@@ -405,9 +402,7 @@ void ToolLayer::OnUIRender()
 					iss >> left.x >> left.y >> right.x >> right.y >> weight >> left_pos.x >> left_pos.y >> left_pos.z >> right_pos.x >> right_pos.y >> right_pos.z;
 					const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
 					
-					std::pair<int, int> index = std::make_pair(0, 0);  //TODO
-
-					s_MatchPoints.AddPoint(left, right, col, weight, index, left_pos, right_pos);
+					s_MatchPoints.AddPoint(left, right, col, weight, left_pos, right_pos);
 				}
 			}
 			else

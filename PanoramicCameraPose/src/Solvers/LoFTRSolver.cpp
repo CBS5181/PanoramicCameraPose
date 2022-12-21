@@ -43,7 +43,7 @@ void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, Ma
         //unsigned int ind = corner_pixel.y * 1024 + corner_pixel.x;
         const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
         //s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, m_PanoPos_gt[ind], false/*not user-specified*/); // LED2Net weight = 10
-        match_points.AddPoint(loftr_matching_left, loftr_match_right, col, 10, pos, pos, false/*not user-specified*/);
+        match_points.AddPoint(loftr_matching_left, loftr_match_right, col, 10, pos, pos);
         ++cnt;
     }
 

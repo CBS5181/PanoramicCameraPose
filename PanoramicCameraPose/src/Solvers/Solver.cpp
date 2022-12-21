@@ -104,8 +104,8 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         }
         else if (method == 1)  //solve essential matrix by Gurobi?
         {
-            //SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
-            SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
+            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
+            //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
         }
 
         std::cout << "Solved essential matrix:" << std::endl << Es[0] << std::endl;
