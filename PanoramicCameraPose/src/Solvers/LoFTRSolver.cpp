@@ -12,7 +12,7 @@ using namespace openMVG::robust;
 using namespace openMVG::sfm;
 
 
-void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, MatchPoints& match_points)
+void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::string& loftr_filename, MatchPoints& match_points)
 {
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
@@ -20,7 +20,6 @@ void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, Ma
 
     // Setup 1 Load LoFTR matching points into match_points
     std::filesystem::path fname1{ jpg_filenameL }, fname2{ jpg_filenameR };
-    std::string loftr_filename = std::string("assets/matching_data/loftr/") + fname1.parent_path().filename().string() + "_and_" + fname2.parent_path().filename().string() + ".txt";
 
     match_points.ClearPixel();
     std::ifstream file(loftr_filename);

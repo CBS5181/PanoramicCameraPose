@@ -367,7 +367,7 @@ void ToolLayer::OnUIRender()
 	{
 		if (ImGui::Button("Save Match points")) // Save current matching points
 		{
-			std::string name = "assets/matching_data/" + s_FileManager.GetPano01Filepath().filename().string() + "_and_" + s_FileManager.GetPano02Filepath().filename().string() + ".txt";
+			std::string name = s_FileManager.GetPano01Filepath().parent_path().string() + "/matching.txt";
 			std::ofstream file;
 			file.open(name);
 			if (file.is_open())
@@ -387,7 +387,7 @@ void ToolLayer::OnUIRender()
 		if (ImGui::Button("Load Match points")) // Load matching points from txt file
 		{
 			s_MatchPoints.ClearPixel(); //  clear before load
-			std::string name = "assets/matching_data/" + s_FileManager.GetPano01Filepath().filename().string() + "_and_" + s_FileManager.GetPano02Filepath().filename().string() + ".txt";
+			std::string name = s_FileManager.GetPano01Filepath().parent_path().string() + "/matching.txt";
 			std::ifstream file;
 			file.open(name);
 			if (file.is_open())
@@ -432,7 +432,9 @@ void ToolLayer::OnUIRender()
 	if (ImGui::Button("LoFTR")) // LoFTR Solver
 	{
 		s_MatchPoints.ClearPixel();
-		LoFTRSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints);
+		std::string loftr_file = s_FileManager.GetPano01Filepath().parent_path().string() + "/loftr.txt";
+		std::cout << loftr_file << std::endl;
+		LoFTRSolver::Solve(left_img.c_str(), right_img.c_str(), loftr_file, s_MatchPoints);
 	}
 	ImGui::Separator();
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));

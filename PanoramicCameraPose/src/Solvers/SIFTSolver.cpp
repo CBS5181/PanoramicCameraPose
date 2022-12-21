@@ -129,7 +129,7 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
 
             // Robust estimation of the Essential matrix and its precision
             Mat3 E;
-            const double precision = D2R(4.0);  //std::numeric_limits<double>::infinity(); //
+            const double precision = std::numeric_limits<double>::infinity(); //D2R(4.0);  //
             const std::pair<double, double> ACRansacOut =
                 ACRANSAC(kernel, vec_inliers, 1024, &E, precision, true);
             const double& threshold = ACRansacOut.first;
@@ -151,8 +151,8 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                 "04_inliers.svg",
                 bVertical
             );
-
-            if (vec_inliers.size() > 8) // 60 is used to filter solution with few common geometric matches (unstable solution)
+            
+            if (vec_inliers.size() >= 0) // 60 is used to filter solution with few common geometric matches (unstable solution)
             {
                 // Decompose the essential matrix and keep the best solution (if any)
                 geometry::Pose3 relative_pose;
