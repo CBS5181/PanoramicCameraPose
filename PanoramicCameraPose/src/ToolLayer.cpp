@@ -104,8 +104,8 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	}
 
 	// set default filepath for test quickly
-	//s_FileManager.SetPano01Filepath("assets/test_data/Replica/01/pano_orig");
-	//s_FileManager.SetPano02Filepath("assets/test_data/Replica/01/pano_R90_T(0,0_5,0)");
+	//s_FileManager.SetPano01Filepath("assets/test_data/Replica/03/pano_orig");
+	//s_FileManager.SetPano02Filepath("assets/test_data/Replica/03/pano_R90_T(0_5,0,0)");
 	s_FileManager.SetPano01Filepath("assets/test_data/ZInD/01/pano_orig");
 	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
 }
@@ -418,9 +418,20 @@ void ToolLayer::OnUIRender()
 	static int method_type = 0; //0: 8-point algorithm, 1:Gurobi
 
 	const char* solve_methods[] = { "8-point", "Gurobi" };
-	if (ImGui::Button("Calculate Relative Pose"))
+	if (ImGui::Button("Calculate"))
 	{
-		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints, method_type);
+		std::vector<MatchPoints> match_points_all;
+		match_points_all.push_back(s_MatchPoints);
+
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, method_type);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("CalculateAll"))
+	{
+		std::vector<MatchPoints> match_points_all;
+		match_points_all.push_back(s_MatchPoints);
+
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, method_type);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SIFT")) // SIFT Solver
