@@ -16,68 +16,80 @@ using namespace openMVG::sfm;
 
 
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
-    const MatchPoints& match_points, int method)
+    const std::vector<MatchPoints>& match_points_all, int method)
 {
+    const int debug_outputs_level = 1;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
+
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
     ReadImage(jpg_filenameR, &imageR);
 
+    //for every given match_points, find a solution, then report the "best" one
 
-    // Setup 2 camera intrinsics
-    cameras::Intrinsic_Spherical
-        cameraL(imageL.Width(), imageL.Height()),
-        cameraR(imageR.Width(), imageR.Height());
-
-    using namespace openMVG::features;
-    PointFeatures featureL, featureR;
-
-    auto& L = match_points.left_pixels;
-    auto& R = match_points.right_pixels;
-
-    for (size_t i = 0; i < L.size(); ++i)
+    for (int ii = 0; ii < match_points_all.size(); ii++)
     {
-        featureL.push_back(PointFeature(L[i].x, L[i].y));
-        featureR.push_back(PointFeature(R[i].x, R[i].y));
+        const MatchPoints& match_points = match_points_all[ii];
 
-    }
+        // Setup 2 camera intrinsics
+        cameras::Intrinsic_Spherical
+            cameraL(imageL.Width(), imageL.Height()),
+            cameraR(imageR.Width(), imageR.Height());
 
-    std::cout
-        << "Left image count: " << featureL.size() << std::endl
-        << "Right image count: " << featureR.size() << std::endl;
+        using namespace openMVG::features;
+        PointFeatures featureL, featureR;
 
-    //- Draw features on the two image (side by side)
-    {
-        Features2SVG
-        (
-            jpg_filenameL,
-            { imageL.Width(), imageL.Height() },
-            featureL,
-            jpg_filenameR,
-            { imageR.Width(), imageR.Height() },
-            featureR,
-            "02_features.svg"
-        );
-    }
-    std::vector<IndMatch> vec_PutativeMatches;
-    for (int i = 0; i < L.size(); ++i)
-    {
-        vec_PutativeMatches.push_back(IndMatch(i, i));
-    }
-    const bool bVertical = true;
-    Matches2SVG
-    (
-        jpg_filenameL,
-        { imageL.Width(), imageL.Height() },
-        featureL,
-        jpg_filenameR,
-        { imageR.Width(), imageR.Height() },
-        featureR,
-        vec_PutativeMatches,
-        "03_Matches.svg",
-        bVertical
-    );
+        auto& L = match_points.left_pixels;
+        auto& R = match_points.right_pixels;
 
-    {
+        for (size_t i = 0; i < L.size(); ++i)
+        {
+            featureL.push_back(PointFeature(L[i].x, L[i].y));
+            featureR.push_back(PointFeature(R[i].x, R[i].y));
+        }
+
+        if (debug_outputs_level >= 2)
+        {
+            std::cout
+                << "Left image count: " << featureL.size() << std::endl
+                << "Right image count: " << featureR.size() << std::endl;
+
+            //- Draw features on the two image (side by side)        
+            Features2SVG
+            (
+                jpg_filenameL,
+                { imageL.Width(), imageL.Height() },
+                featureL,
+                jpg_filenameR,
+                { imageR.Width(), imageR.Height() },
+                featureR,
+                "02_features.svg"
+            );
+        }
+
+        std::vector<IndMatch> vec_PutativeMatches;
+        for (int i = 0; i < L.size(); ++i)
+        {
+            vec_PutativeMatches.push_back(IndMatch(i, i));
+        }
+        
+        if (debug_outputs_level >= 2)
+        {
+            const bool bVertical = true;
+            Matches2SVG
+            (
+                jpg_filenameL,
+                { imageL.Width(), imageL.Height() },
+                featureL,
+                jpg_filenameR,
+                { imageR.Width(), imageR.Height() },
+                featureR,
+                vec_PutativeMatches,
+                "03_Matches.svg",
+                bVertical
+            );
+        }
+
+
         // Essential geometry filtering of putative matches
         Mat2X
             xL(2, vec_PutativeMatches.size()),
@@ -92,48 +104,72 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
         const Mat xL_spherical = cameraL(xL),
             xR_spherical = cameraR(xR);
-        
+
         std::vector<uint32_t> vec_inliers(L.size());
         std::iota(vec_inliers.begin(), vec_inliers.end(), 0);
 
         //solve essential matrix E:
-        std::vector<Mat3> Es;
-        if (method == 0)  //Pure Eigth Point Algorithm            
+        Mat3 E;
         {
-            openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
-        }
-        else if (method == 1)  //solve essential matrix by Gurobi?
-        {
-            SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
-            //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
+            std::vector<Mat3> Es;
+            if (method == 0)  //Pure Eigth Point Algorithm            
+            {
+                openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
+            }
+            else if (method == 1)  //solve essential matrix by Gurobi?
+            {
+                SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
+                //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
+            }
+
+            E = Es[0];  //just take the first solved E
         }
 
-        std::cout << "Solved essential matrix:" << std::endl << Es[0] << std::endl;
         //report essential matrix equation errors
-        std::cout << "Essential matrix equation residuals:" << std::endl;
-        for (int i = 0; i < xL_spherical.cols(); i++)
+        if (debug_outputs_level >= 2)
         {
-            Eigen::Vector3d x1 = xL_spherical.col(i);
-            Eigen::Vector3d x2 = xR_spherical.col(i);
-            std::cout << x2.transpose() * Es[0] * x1 << std::endl;
+            std::cout << "Solved essential matrix:" << std::endl << E << std::endl;
+            std::cout << "Essential matrix equation residuals:" << std::endl;
+            for (int i = 0; i < xL_spherical.cols(); i++)
+            {
+                Eigen::Vector3d x1 = xL_spherical.col(i);
+                Eigen::Vector3d x2 = xR_spherical.col(i);
+                std::cout << x2.transpose() * E * x1 << std::endl;
+            }
+        }
+        else if (debug_outputs_level >= 1)
+        {
+            //just report abs sum of essential matrix equation residuals
+            float abs_sum = 0;
+            for (int i = 0; i < xL_spherical.cols(); i++)
+            {
+                Eigen::Vector3d x1 = xL_spherical.col(i);
+                Eigen::Vector3d x2 = xR_spherical.col(i);
+                abs_sum += abs( x2.transpose() * E * x1 );
+            }
+            std::cout << "Essential matrix equation residuals abs sum: " << abs_sum << std::endl;
         }
 
         // Decompose the essential matrix and keep the best solution (if any)
         geometry::Pose3 relative_pose;
         std::vector<uint32_t> inliers_indexes;
         std::vector<Vec3> inliers_X;
-        
+
         if (RelativePoseFromEssential(xL_spherical,
             xR_spherical,
-            Es[0], vec_inliers,
+            E, vec_inliers,
             &relative_pose,
             &inliers_indexes,
             &inliers_X))
         {
-            // check inlier indexs
-            std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
-            for (auto i : inliers_indexes) std::cout << i << " ";
-            std::cout << std::endl;
+            if (debug_outputs_level >= 2)
+            {
+                // check inlier indexs
+                std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
+                for (auto i : inliers_indexes) std::cout << i << " ";
+                std::cout << std::endl;
+            }
+
             // Lets make a BA on the scene to check if it relative pose and structure can be refined
 
             // Setup a SfM scene with two view corresponding the pictures
@@ -193,16 +229,22 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
                 }
 
-                std::cout << "Residual statistics (pixels):" << std::endl;
-                minMaxMeanMedian<double>(residuals.cbegin(), residuals.cend(), std::cout);
+                if (debug_outputs_level >= 1)
+                {
+                    std::cout << "(BA) Residual statistics (pixels):" << std::endl;
+                    minMaxMeanMedian<double>(residuals.cbegin(), residuals.cend(), std::cout);
+                }
 
-                Save(tiny_scene, "EssentialGeometry_refined.ply", ESfM_Data(ALL));
+                if (debug_outputs_level >= 2)
+                {
+                    openMVG::sfm::Save(tiny_scene, "EssentialGeometry_refined.ply", ESfM_Data(ALL));
+                }
             }
 
         }
     }
+    
 }
-
 
 bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     const Mat3X& x1,
