@@ -104,10 +104,10 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	}
 
 	// set default filepath for test quickly
-	//s_FileManager.SetPano01Filepath("assets/test_data/Replica/01/pano_orig");
-	//s_FileManager.SetPano02Filepath("assets/test_data/Replica/01/pano_R90_T(0,0_5,0)");
-	s_FileManager.SetPano01Filepath("assets/test_data/ZInD/01/pano_orig");
-	s_FileManager.SetPano02Filepath("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
+	//s_FileManager.SetPano01Info("assets/test_data/Replica/01/pano_orig");
+	//s_FileManager.SetPano02Info("assets/test_data/Replica/01/pano_R90_T(0,0_5,0)");
+	s_FileManager.SetPano01Info("assets/test_data/ZInD/01/pano_orig");
+	s_FileManager.SetPano02Info("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
 }
 
 void ToolLayer::OnUIRender()
@@ -136,7 +136,7 @@ void ToolLayer::OnUIRender()
 				const wchar_t* filepath = (const wchar_t*)payload->Data;
 				if (fs::is_directory(filepath)) // only accept folder
 				{
-					s_FileManager.SetPano01Filepath(filepath);
+					s_FileManager.SetPano01Info(filepath);
 					s_MatchPoints.ClearPixel();
 				}
 			}
@@ -148,7 +148,7 @@ void ToolLayer::OnUIRender()
 			std::wstring filepath = FileDialogs::OpenFolder();
 			if (!filepath.empty())
 			{
-				s_FileManager.SetPano01Filepath(filepath); // set and load texture
+				s_FileManager.SetPano01Info(filepath); // set and load texture
 				s_MatchPoints.ClearPixel();
 			}
 		}
@@ -162,7 +162,7 @@ void ToolLayer::OnUIRender()
 				const wchar_t* filepath = (const wchar_t*)payload->Data;
 				if (fs::is_directory(filepath))
 				{
-					s_FileManager.SetPano02Filepath(filepath);
+					s_FileManager.SetPano02Info(filepath);
 					s_MatchPoints.ClearPixel();
 				}
 			}
@@ -176,7 +176,7 @@ void ToolLayer::OnUIRender()
 			std::wstring filepath = FileDialogs::OpenFolder();
 			if (!filepath.empty())
 			{
-				s_FileManager.SetPano02Filepath(filepath);
+				s_FileManager.SetPano02Info(filepath);
 				s_MatchPoints.ClearPixel();
 			}
 		}
@@ -189,6 +189,12 @@ void ToolLayer::OnUIRender()
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
 		/* Now Matching point by human doesn't have position information */
 		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, glm::vec3{0.0f}, glm::vec3{0.0f});
+	}
+
+	if (ImGui::Button("Corner->Match"))
+	{
+		// TODO: Corner to Match algorithm
+		std::cout << "TODO: Corner to Match algorithm\n";
 	}
 
 	// match table
@@ -271,31 +277,30 @@ void ToolLayer::OnUIRender()
 		else
 		{
 			s_MatchPoints.ClearPixel();
-			std::ifstream file(corner_path01);
-			std::ifstream file2(corner_path02);
+			s_FileManager.GetPano01Corners().isLoad = true;
+			s_FileManager.GetPano02Corners().isLoad = true;
+			//std::string str, str2;
+			//while (std::getline(file, str) && std::getline(file2, str2))
+			//{
+			//	// read pano01 corner pixels
+			//	std::istringstream iss(str);
+			//	glm::vec2 corner_pixel;
+			//	glm::vec3 pos;
+			//	iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
 
-			std::string str, str2;
-			while (std::getline(file, str) && std::getline(file2, str2))
-			{
-				// read pano01 corner pixels
-				std::istringstream iss(str);
-				glm::vec2 corner_pixel;
-				glm::vec3 pos;
-				iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
+			//	// read pano02 corner pixels
+			//	std::istringstream iss2(str2);
+			//	glm::vec2 corner_pixel2;
+			//	glm::vec3 pos2;
+			//	iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
 
-				// read pano02 corner pixels
-				std::istringstream iss2(str2);
-				glm::vec2 corner_pixel2;
-				glm::vec3 pos2;
-				iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
+			//	const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+			//	
+			//	//which layout side, 0-th point on the side  
+			//	std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
 
-				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				
-				//which layout side, 0-th point on the side  
-				std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
-
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
-			}
+			//	s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
+			//}
 		}
 	}
 	ImGui::SameLine();

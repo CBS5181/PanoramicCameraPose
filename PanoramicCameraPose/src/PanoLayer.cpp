@@ -7,6 +7,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+
+
 static GLuint aim_tex = 0;
 static int aim_w = 0;
 static int aim_h = 0;
@@ -158,6 +160,11 @@ void PanoLayer::OnUIRender()
     // draw mouse picking circle
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
     draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+
+    ImVec2 viewport_bound{ m_ViewportBounds[0].x, m_ViewportBounds[0].y };
+    // Draw Corner Points
+    ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
+    ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
 
     // draw already matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)

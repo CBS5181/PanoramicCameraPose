@@ -2,6 +2,7 @@
 #include "FileManager.h"
 #include "stb_image.h"
 
+
 bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height)
 {
 	std::filesystem::path p = filepath;
@@ -48,6 +49,37 @@ bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLu
 		*out_width = image_width;
 		*out_height = image_height;
 	}
+	
+	return true;
+}
+
+bool FileManager::LoadCornersFromFile(const std::filesystem::path& filepath, bool isPano01)
+{
+	auto& corners = (isPano01) ? m_pano01_corners : m_pano02_corners;
+	std::ifstream file(filepath);
+	std::string str;
+	std::vector<glm::vec2> corner_pixels;
+	std::vector<glm::vec3> positions;
+	if (!file.is_open())
+	{
+		std::cout << filepath << "\nPredicted corner points from LED2-Net not found!\n";
+		return false;
+	}
+
+	while (std::getline(file, str))
+	{
+		// read pano01 corner pixels
+		std::istringstream iss(str);
+		glm::vec2 corner_pixel;
+		glm::vec3 pos;
+		iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
+
+		corner_pixels.push_back(corner_pixel);
+		positions.push_back(pos);
+		
+	}
+	corners.ClearPoints();
+	corners.AddPoints(corner_pixels, positions);
 	
 	return true;
 }
