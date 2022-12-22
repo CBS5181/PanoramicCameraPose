@@ -133,8 +133,8 @@ void PanoLayer::OnUIRender()
     if (m_ViewportSize.x != viewportPanelSize.x || m_ViewportSize.y != viewportPanelSize.y) // update when viewport resized
     {
         m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
-        //m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
-        m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
+        m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
+        //m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
         m_fboSize = ImVec2((float)left_image.width * m_ratio, (float)left_image.height * m_ratio * 2);
         makeFBO(m_fboSize, &fbo, &tex);
     }
@@ -146,9 +146,9 @@ void PanoLayer::OnUIRender()
     float my_tex_h = (float)left_image.height * m_ratio;
 
     ImGui::Image(my_left_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    //SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2); // TODO: fix
+    SetImGuiTooltip((ImTextureID)tex, pos, io, m_fboSize.x, m_fboSize.y); // TODO: fix
     ImGui::Image(my_right_tex_id, ImVec2{ my_tex_w, my_tex_h });
-    //SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
+    SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     static float sz = 30.0f;
@@ -172,7 +172,6 @@ void PanoLayer::OnUIRender()
 
     ImGui::End();
     ImGui::PopStyleVar(2);
-
     // Render to texture
     renderDrawList(fbo, draw_list, ImVec2{ m_ViewportBounds[0].x, m_ViewportBounds[0].y }, m_fboSize);
 }
@@ -185,9 +184,9 @@ void PanoLayer::OnUpdate()
     glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
     //my = viewportSize.y - my; // 改為左下(0, 0) y往上為正
     //std::cout << "x: " << mx << " y: " << my << std::endl;
-    
+
     // mouse picking
-    if (mouseX >= 0 && mouseY >= 0 && mouseX < viewportSize.x && mouseY < 1024.0f * m_ratio) 
+    if (mouseX >= 0 && mouseY >= 0 && mouseX < viewportSize.x && mouseY < 1024.0f * m_ratio)
     {
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
@@ -195,7 +194,7 @@ void PanoLayer::OnUpdate()
             {
                 s_left_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
                 s_left_pixel.y = glm::min(mouseY / m_ratio, 511.0f);
-                
+
             }
             else
             {
@@ -218,4 +217,4 @@ Application* CreateApplication(int argc, char** argv)
 
 glm::vec2 PanoLayer::s_left_pixel(0.0f, 0.0f);
 glm::vec2 PanoLayer::s_right_pixel(0.0f, 0.0f);
-bool PanoLayer::isMouseButtonLeftClick = false; 
+bool PanoLayer::isMouseButtonLeftClick = false;

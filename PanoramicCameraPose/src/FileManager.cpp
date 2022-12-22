@@ -5,7 +5,10 @@
 bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLuint* out_texture, int* out_width, int* out_height)
 {
 	std::filesystem::path p = filepath;
-	p = p / "color.jpg";
+	if (std::filesystem::is_directory(p)) // bug fixed! aim.png cannot rendered without this if condition!
+	{
+		p = p / "color.jpg";
+	}
 	auto s = p.string();
 	const char* filename = s.c_str();
 	// Load from file
