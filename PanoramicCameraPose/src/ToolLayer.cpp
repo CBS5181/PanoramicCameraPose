@@ -104,8 +104,8 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	}
 
 	// set default filepath for test quickly
-	s_FileManager.SetPano01Info("assets/test_data/ZInD/01/pano_orig");
-	s_FileManager.SetPano02Info("assets/test_data/ZInD/01/pano_R38_506_T(0_364,-0_931,0_0)");
+	s_FileManager.SetPano01Info("assets/test_data/ZInD/02/pano_orig");
+	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R0_294_T(-0_377,-0_926,0_001)");
 }
 
 void ToolLayer::OnUIRender()
