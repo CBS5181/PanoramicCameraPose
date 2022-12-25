@@ -37,6 +37,13 @@ static glm::vec2 PosToSpherical(glm::vec3 p, bool flip_x = true)
 	if (flip_x)
 	{
 		p.x = -p.x;
+		
+	}
+	else
+	{
+		// HorizonNet's coordinate space
+		std::swap(p.x, p.y);
+		p.y = -p.y;
 	}
 
 	glm::vec2 c;
@@ -277,28 +284,32 @@ void ToolLayer::OnUIRender()
 			s_MatchPoints.ClearPixel();
 			s_FileManager.GetPano01Corners().isLoad = true;
 			s_FileManager.GetPano02Corners().isLoad = true;
-			//std::string str, str2;
-			//while (std::getline(file, str) && std::getline(file2, str2))
-			//{
-			//	// read pano01 corner pixels
-			//	std::istringstream iss(str);
-			//	glm::vec2 corner_pixel;
-			//	glm::vec3 pos;
-			//	iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
 
-			//	// read pano02 corner pixels
-			//	std::istringstream iss2(str2);
-			//	glm::vec2 corner_pixel2;
-			//	glm::vec3 pos2;
-			//	iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
+			/*====== Following code segments for loading corners as matching points======*/
+			std::ifstream file(corner_path01);
+			std::ifstream file2(corner_path02);
+			std::string str, str2;
+			while (std::getline(file, str) && std::getline(file2, str2))
+			{
+				// read pano01 corner pixels
+				std::istringstream iss(str);
+				glm::vec2 corner_pixel;
+				glm::vec3 pos;
+				iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
 
-			//	const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-			//	
-			//	//which layout side, 0-th point on the side  
-			//	std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
+				// read pano02 corner pixels
+				std::istringstream iss2(str2);
+				glm::vec2 corner_pixel2;
+				glm::vec3 pos2;
+				iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
 
-			//	s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
-			//}
+				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+				
+				//which layout side, 0-th point on the side  
+				std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
+
+				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
+			}
 		}
 	}
 	ImGui::SameLine();
@@ -346,12 +357,12 @@ void ToolLayer::OnUIRender()
 					//left:
 					glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
 					//the point's 2d pixel pos?
-					glm::vec2 xy = SphericalToXY(PosToSpherical(p), 1024, 512);
+					glm::vec2 xy = SphericalToXY(PosToSpherical(p, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
 
 					//right:
 					glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
 					//the point's 2d pixel pos?
-					glm::vec2 XY = SphericalToXY(PosToSpherical(P), 1024, 512);
+					glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
 
 					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
 
