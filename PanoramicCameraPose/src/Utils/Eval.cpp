@@ -58,7 +58,7 @@ namespace Utils
     void EvaluationMetrics(const openMVG::geometry::Pose3& pose_gt, const openMVG::geometry::Pose3& pose_est)
     {
         Eigen::IOFormat fmt(6, 0, " ", "\n", "[", "]"), vfmt(6, 0, "", "", "", "", "[", "]"); // Matrix format and vector format.
-        std::cout << "Esitmated Pose\n";
+        std::cout << "Estimated Pose\n";
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_est.asMatrix().format(fmt) << std::endl << std::endl;
 
