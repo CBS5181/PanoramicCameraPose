@@ -307,6 +307,17 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             model.addQConstr(term == 1);
         }
 
+        //2D rotation (along y-axis) and 2D translation constraint:
+        //E[0,0], E[2,0], E[1,1], E[0,2], E[2,2] are zeros!
+        if (true)
+        {
+            model.addConstr(vars_E[0] == 0);
+            model.addConstr(vars_E[2] == 0);
+            model.addConstr(vars_E[4] == 0);
+            model.addConstr(vars_E[6] == 0);
+            model.addConstr(vars_E[8] == 0);
+        }
+
         //solve!
         model.set(GRB_IntParam_NonConvex, 2);
 

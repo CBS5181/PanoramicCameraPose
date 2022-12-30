@@ -115,6 +115,123 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R0_294_T(-0_377,-0_926,0_001)");
 }
 
+void ToolLayer::SubdivideMatching(bool circular)
+{
+	//add intermediate points on edges of the layout?
+	//assume the original points are upper ones and then lower ones
+
+	const int subd = 4;  //how many subdivided vertices to add alone an edge?
+	int num_corners = s_MatchPoints.left_positions.size() / 2;
+
+	//new set of MatchPoints (to replace old one later)
+	MatchPoints new_points;
+
+	if (!circular)
+	{
+		//ceiling then floor:
+		for (int Case = 0; Case < 2; Case++)
+		{
+			for (int i = 0; i < num_corners - 1; i++)
+			{
+				int offset = 0;
+				if (Case == 1)
+					offset += num_corners;  //the latter half
+
+				//add the original point (on the start):
+				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
+					s_MatchPoints.right_pixels[offset + i],
+					s_MatchPoints.v_color[offset + i],
+					10,
+					s_MatchPoints.left_positions[offset + i],
+					s_MatchPoints.right_positions[offset + i]);
+
+				//create and add the new intermediate points:
+				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
+				glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
+				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
+				glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
+				for (int j = 0; j < subd; j++)
+				{
+					//left:
+					glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 xy = SphericalToXY(PosToSpherical(p, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
+
+					//right:
+					glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
+
+					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
+
+					//index of this point pair:
+					std::pair index(offset + i, j + 1);
+
+					new_points.AddPoint(xy, XY, col, 10, p, P);
+				}
+
+				//add the original point (on the end):
+				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i + 1],
+					s_MatchPoints.right_pixels[offset + i + 1],
+					s_MatchPoints.v_color[offset + i + 1],
+					10,
+					s_MatchPoints.left_positions[offset + i + 1],
+					s_MatchPoints.right_positions[offset + i + 1]);
+
+
+			}
+		}
+	}
+	else  //circular add
+	{
+		//ceiling then floor:
+		for (int Case = 0; Case < 2; Case++)
+		{
+			for (int i = 0; i < num_corners; i++)
+			{
+				int offset = 0;
+				if (Case == 1)
+					offset += num_corners;  //the latter half
+
+				//add the original point (on the begin):
+				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
+					s_MatchPoints.right_pixels[offset + i],
+					s_MatchPoints.v_color[offset + i],
+					10,
+					s_MatchPoints.left_positions[offset + i],
+					s_MatchPoints.right_positions[offset + i]);
+
+				//create and add the new intermediate points:
+				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
+				glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
+				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
+				glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
+				for (int j = 0; j < subd; j++)
+				{
+					//left:
+					glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 xy = SphericalToXY(PosToSpherical(p, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
+
+					//right:
+					glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
+					//the point's 2d pixel pos?
+					glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
+
+					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
+
+					//index of this point pair:
+					std::pair index(offset + i, j + 1);
+
+					new_points.AddPoint(xy, XY, col, 10, p, P);
+				}
+			}
+		}
+	}
+
+	s_MatchPoints = new_points;
+}
+
 void ToolLayer::OnUIRender()
 {
 	const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
@@ -330,127 +447,19 @@ void ToolLayer::OnUIRender()
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Rotate Matching")) // Rotate right image corner for correct matching
+	if (ImGui::Button("Rotate")) // Rotate right image corner for correct matching
 	{
 		s_MatchPoints.RotateRightPixels();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Subdivide"))
+	if (ImGui::Button("Subd"))
 	{
-		//add intermediate points on edges of the layout?
-		//assume the original points are upper ones and then lower ones
-
-		const int subd = 4;  //how many subdivided vertices to add alone an edge?
-		int num_corners = s_MatchPoints.left_positions.size() / 2;
-
-		//new set of MatchPoints (to replace old one later)
-		MatchPoints new_points;
-
-		//if #corners == 2, special case of just one wall
-		if (num_corners == 2)
-		{
-			//ceiling then floor:
-			for (int Case = 0; Case < 2; Case++)
-			{
-				for (int i = 0; i < num_corners - 1; i++)
-				{
-					int offset = 0;
-					if (Case == 1)
-						offset += num_corners;  //the latter half
-
-					//add the original point (on the start):
-					new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
-						s_MatchPoints.right_pixels[offset + i],
-						s_MatchPoints.v_color[offset + i],
-						10,
-						s_MatchPoints.left_positions[offset + i],
-						s_MatchPoints.right_positions[offset + i]);
-
-					//create and add the new intermediate points:
-					glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
-					glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
-					glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
-					glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
-					for (int j = 0; j < subd; j++)
-					{
-						//left:
-						glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
-						//the point's 2d pixel pos?
-						glm::vec2 xy = SphericalToXY(PosToSpherical(p, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
-
-						//right:
-						glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
-						//the point's 2d pixel pos?
-						glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
-
-						const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
-
-						//index of this point pair:
-						std::pair index(offset + i, j + 1);
-
-						new_points.AddPoint(xy, XY, col, 10, p, P);
-					}
-
-					//add the original point (on the end):
-					new_points.AddPoint(s_MatchPoints.left_pixels[offset + i + 1],
-						s_MatchPoints.right_pixels[offset + i + 1],
-						s_MatchPoints.v_color[offset + i + 1],
-						10,
-						s_MatchPoints.left_positions[offset + i + 1],
-						s_MatchPoints.right_positions[offset + i + 1]);
-
-
-				}
-			}
-		}
-		else  //circular add
-		{
-			//ceiling then floor:
-			for (int Case = 0; Case < 2; Case++)
-			{
-				for (int i = 0; i < num_corners; i++)
-				{
-					int offset = 0;
-					if (Case == 1)
-						offset += num_corners;  //the latter half
-
-					//add the original point (on the begin):
-					new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
-						s_MatchPoints.right_pixels[offset + i],
-						s_MatchPoints.v_color[offset + i],
-						10,
-						s_MatchPoints.left_positions[offset + i],
-						s_MatchPoints.right_positions[offset + i]);
-
-					//create and add the new intermediate points:
-					glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
-					glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
-					glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
-					glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
-					for (int j = 0; j < subd; j++)
-					{
-						//left:
-						glm::vec3 p = p0 + (p1 - p0) * (float)(j + 1) / (float)(subd + 1);
-						//the point's 2d pixel pos?
-						glm::vec2 xy = SphericalToXY(PosToSpherical(p, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
-
-						//right:
-						glm::vec3 P = P0 + (P1 - P0) * (float)(j + 1) / (float)(subd + 1);
-						//the point's 2d pixel pos?
-						glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
-
-						const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
-
-						//index of this point pair:
-						std::pair index(offset + i, j + 1);
-
-						new_points.AddPoint(xy, XY, col, 10, p, P);
-					}
-				}
-			}
-		}
-
-		s_MatchPoints = new_points;
+		SubdivideMatching(false);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("SubdCircular"))  //circular subdivide
+	{
+		SubdivideMatching(true);
 	}
 
 	// Save/Load temporary matching points
