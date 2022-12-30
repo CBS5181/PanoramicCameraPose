@@ -135,8 +135,10 @@ void PanoLayer::OnUIRender()
     if (m_ViewportSize.x != viewportPanelSize.x || m_ViewportSize.y != viewportPanelSize.y) // update when viewport resized
     {
         m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
-        m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
-        //m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
+        
+        //m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
+        m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
+        
         m_fboSize = ImVec2((float)left_image.width * m_ratio, (float)left_image.height * m_ratio * 2);
         makeFBO(m_fboSize, &fbo, &tex);
     }
