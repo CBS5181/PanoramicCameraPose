@@ -135,8 +135,10 @@ void PanoLayer::OnUIRender()
     if (m_ViewportSize.x != viewportPanelSize.x || m_ViewportSize.y != viewportPanelSize.y) // update when viewport resized
     {
         m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
-        m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
-        //m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
+        
+        //m_ratio = m_ViewportSize[0] / left_image.width; // resized by width
+        m_ratio = m_ViewportSize[1] / (2.0 * left_image.height); // resize by half viewportsize
+        
         m_fboSize = ImVec2((float)left_image.width * m_ratio, (float)left_image.height * m_ratio * 2);
         makeFBO(m_fboSize, &fbo, &tex);
     }
@@ -158,15 +160,18 @@ void PanoLayer::OnUIRender()
     const ImU32 col = ImColor(colf);
     const float thickness = 3.0f;
     // draw mouse picking circle
-    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
-    draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+    if (s_left_pixel.x >= 0 && s_left_pixel.y >= 0)
+        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+    if (s_right_pixel.x >= 0 && s_right_pixel.y >= 0)
+        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
 
     ImVec2 viewport_bound{ m_ViewportBounds[0].x, m_ViewportBounds[0].y };
+    
     // Draw Corner Points
-    ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
-    ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
+    //ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
+    //ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
 
-    // draw already matching points
+    // draw matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)
     {
         //auto& [left_match, right_match] = matching_points[i];
@@ -222,6 +227,6 @@ Application* CreateApplication(int argc, char** argv)
     return app;
 }
 
-glm::vec2 PanoLayer::s_left_pixel(0.0f, 0.0f);
-glm::vec2 PanoLayer::s_right_pixel(0.0f, 0.0f);
+glm::vec2 PanoLayer::s_left_pixel(-1.0f, -1.0f);
+glm::vec2 PanoLayer::s_right_pixel(-1.0f, -1.0f);
 bool PanoLayer::isMouseButtonLeftClick = false;

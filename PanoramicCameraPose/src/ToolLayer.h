@@ -14,4 +14,7 @@ public:
 private:
 	std::vector<glm::vec3> m_PanoPos_gt;
 	int match_ind = 0;
+
+	//subdivide current matching in circular or not way
+	void SubdivideMatching(bool circular);
 };
