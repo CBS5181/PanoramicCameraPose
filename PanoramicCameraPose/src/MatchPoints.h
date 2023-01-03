@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include "glm/glm.hpp"
+#include "CornerPoints.h"
+
 struct MatchPoints
 {
 	MatchPoints() {}
@@ -61,5 +63,48 @@ struct MatchPoints
 		right_positions.erase(right_positions.begin() + index);
 
 		std::cout << "size:" << size() << std::endl;
+	}
+
+	void CovertCornerToMatch(CornerPoints& left_corner, CornerPoints& right_corner)
+	{
+		// Easily match when num of corners is equal.
+		if (!left_corner.isLoad || !right_corner.isLoad)
+		{
+			std::cout << "Please Load Corner First!\n";
+			return ; 
+		}
+		if (left_corner.floor_pixels.size() == right_corner.floor_pixels.size())
+		{
+			size_t num = left_corner.floor_pixels.size() + left_corner.ceil_pixels.size();
+			left_pixels.reserve(num);
+			right_pixels.reserve(num);
+			
+			std::move(left_corner.ceil_pixels.begin(), left_corner.ceil_pixels.end(), std::back_inserter(left_pixels));
+			std::move(left_corner.floor_pixels.begin(), left_corner.floor_pixels.end(), std::back_inserter(left_pixels));
+			std::move(left_corner.ceil_positions.begin(), left_corner.ceil_positions.end(), std::back_inserter(left_positions));
+			std::move(left_corner.floor_positions.begin(), left_corner.floor_positions.end(), std::back_inserter(left_positions));
+
+			std::move(right_corner.ceil_pixels.begin(), right_corner.ceil_pixels.end(), std::back_inserter(right_pixels));
+			std::move(right_corner.floor_pixels.begin(), right_corner.floor_pixels.end(), std::back_inserter(right_pixels));
+			std::move(right_corner.ceil_positions.begin(), right_corner.ceil_positions.end(), std::back_inserter(right_positions));
+			std::move(right_corner.floor_positions.begin(), right_corner.floor_positions.end(), std::back_inserter(right_positions));
+
+			for (size_t i = 0; i < num; ++i)
+			{
+				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+				v_color.push_back(col);
+				weights.push_back(10);
+			}
+			
+			// Please note that the original container elements are left in an unspecified but valid state after std::move is called.
+			// So clear for safety.
+			left_corner.ClearPoints();
+			right_corner.ClearPoints();
+		}
+		else
+		{
+			// TODO: Corner to Match algorithm
+			std::cout << "TODO: Corner to Match algorithm\n";
+		}
 	}
 };

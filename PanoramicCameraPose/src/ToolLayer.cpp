@@ -112,7 +112,7 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 
 	// set default filepath for test quickly
 	s_FileManager.SetPano01Info("assets/test_data/ZInD/02/pano_orig");
-	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R0_294_T(-0_377,-0_926,0_001)");
+	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R0_294_T(-0_282,-0_692,0_001)");
 }
 
 void ToolLayer::SubdivideMatching(bool circular)
@@ -318,8 +318,7 @@ void ToolLayer::OnUIRender()
 
 	if (ImGui::Button("Corner->Match"))
 	{
-		// TODO: Corner to Match algorithm
-		std::cout << "TODO: Corner to Match algorithm\n";
+		s_MatchPoints.CovertCornerToMatch(s_FileManager.GetPano01Corners(), s_FileManager.GetPano02Corners());
 	}
 
 	static int selectIndex = -1;
@@ -335,6 +334,17 @@ void ToolLayer::OnUIRender()
 			PanoLayer::s_left_pixel = glm::vec2(-1, -1);
 			PanoLayer::s_right_pixel = glm::vec2(-1, -1);
 		}
+	}
+
+	if (ImGui::Button("Show Transformed corners"))
+	{
+		s_FileManager.GetTransformCorners().isLoad = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Reset"))
+	{
+		s_MatchPoints.ClearPixel();
+		s_FileManager.DisableShowCorners();
 	}
 
 	// match table
@@ -404,49 +414,66 @@ void ToolLayer::OnUIRender()
 		}
 	}
 
+	static int current_corner_type = 0;
 	// Load LED2-Net corners
 	if (ImGui::Button("Load Corners"))
 	{
-		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / "pred_corner.txt";
-		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / "pred_corner.txt";
+		const char* corner_filename[] = { "pred_corner_raw.txt", "pred_corner.txt", "pred_corner_peak.txt" };
+		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / corner_filename[current_corner_type];
+		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / corner_filename[current_corner_type];
+		std::filesystem::path transCornersPath = s_FileManager.GetPano02Filepath().parent_path() / "trans_corner.txt";
+		
 		if (corner_path01.empty() || corner_path02.empty())
 		{
-			std::cout << "Please Upload two panoramic images!\n";
+			std::cout << "Please Upload " << corner_filename[current_corner_type] << std::endl;
+		}
+		else if (transCornersPath.empty())
+		{
+			std::cout << "Please Upload trans_corner.txt" << std::endl;
 		}
 		else
 		{
 			s_MatchPoints.ClearPixel();
+			s_FileManager.SetPano01Corners(corner_path01);
+			s_FileManager.SetPano02Corners(corner_path02);
+			s_FileManager.SetTransformCorners(transCornersPath);
 			s_FileManager.GetPano01Corners().isLoad = true;
 			s_FileManager.GetPano02Corners().isLoad = true;
-
+			
 			/*====== Following code segments for loading corners as matching points======*/
-			std::ifstream file(corner_path01);
-			std::ifstream file2(corner_path02);
-			std::string str, str2;
-			while (std::getline(file, str) && std::getline(file2, str2))
-			{
-				// read pano01 corner pixels
-				std::istringstream iss(str);
-				glm::vec2 corner_pixel;
-				glm::vec3 pos;
-				iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
+			
+			//std::ifstream file(corner_path01);
+			//std::ifstream file2(corner_path02);
+			//std::string str, str2;
+			//while (std::getline(file, str) && std::getline(file2, str2))
+			//{
+			//	// read pano01 corner pixels
+			//	std::istringstream iss(str);
+			//	glm::vec2 corner_pixel;
+			//	glm::vec3 pos;
+			//	iss >> corner_pixel.x >> corner_pixel.y >> pos.x >> pos.y >> pos.z;
 
-				// read pano02 corner pixels
-				std::istringstream iss2(str2);
-				glm::vec2 corner_pixel2;
-				glm::vec3 pos2;
-				iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
+			//	// read pano02 corner pixels
+			//	std::istringstream iss2(str2);
+			//	glm::vec2 corner_pixel2;
+			//	glm::vec3 pos2;
+			//	iss2 >> corner_pixel2.x >> corner_pixel2.y >> pos2.x >> pos2.y >> pos2.z;
 
-				const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
-				
-				//which layout side, 0-th point on the side  
-				std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
+			//	const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
+			//	
+			//	//which layout side, 0-th point on the side  
+			//	std::pair<int, int> index = std::make_pair(s_MatchPoints.size(), 0);
 
-				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
-			}
+			//	s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
+			//}
+			
 		}
 	}
 	ImGui::SameLine();
+	const char* corner_type[] = { "w/o post", "post", "peak" };
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
+	ImGui::Combo("Corner Type", &current_corner_type, corner_type, IM_ARRAYSIZE(corner_type));
+
 	if (ImGui::Button("Rotate")) // Rotate right image corner for correct matching
 	{
 		s_MatchPoints.RotateRightPixels();
@@ -547,6 +574,7 @@ void ToolLayer::OnUIRender()
 		LoFTRSolver::Solve(left_img.c_str(), right_img.c_str(), loftr_file, s_MatchPoints);
 	}
 	ImGui::Separator();
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
 }
 
