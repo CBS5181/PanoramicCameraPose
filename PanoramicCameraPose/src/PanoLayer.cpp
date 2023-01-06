@@ -168,8 +168,9 @@ void PanoLayer::OnUIRender()
     ImVec2 viewport_bound{ m_ViewportBounds[0].x, m_ViewportBounds[0].y };
     
     // Draw Corner Points
-    //ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
-    //ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
+    ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
+    ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
+    ToolLayer::s_FileManager.GetTransformCorners().RenderCorners(draw_list, viewport_bound, m_ratio, false, true); // transformed corners
 
     // draw matching points
     for (int i = 0; i < ToolLayer::s_MatchPoints.size(); ++i)

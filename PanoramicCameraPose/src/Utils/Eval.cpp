@@ -20,10 +20,9 @@ namespace Utils
         return ret;
     }
 
-    openMVG::geometry::Pose3 ParseStrToPose(std::string& str)
+    std::tuple<double, double, double, double> ParseStrToRT(std::string& str)
     {
         // example: pano_R90_T(0_0,0_5,0_0) => rotate(90 degree) and Translation (0, 0.5, 0)
-        // Step 1: Separate rotation angle and translation
         std::replace(str.begin(), str.end(), '_', '.');
         std::regex pattern{ R"([+-]?[0-9]*[.]?[0-9]+)" };
         std::vector<std::string> matches;
@@ -36,7 +35,16 @@ namespace Utils
         double x = std::stod(matches[1]);
         double y = std::stod(matches[2]);
         double z = std::stod(matches[3]);
-        
+
+        return std::make_tuple(degree, x, y, z);
+    }
+
+    openMVG::geometry::Pose3 ParseStrToPose(std::string& str)
+    {
+        // Step 1: Separate rotation angle and translation  
+        auto[ degree, x, y, z ] = ParseStrToRT(str);
+
+        // Step 2: Get rotation matrix and translation vector
         // Transition to OpenMVG coordinate system
         Eigen::Matrix3d transition;
         transition <<   -1.0, 0.0, 0.0,      // zind: change x to -x, y to z axis, and z to -y axis
@@ -51,7 +59,6 @@ namespace Utils
         openMVG::Vec3 t{ x, y, z };
         t = transition * t;
         t.normalize();
-
         return openMVG::geometry::Pose3{ R, t };
     }
 

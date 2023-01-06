@@ -53,16 +53,17 @@ bool FileManager::LoadTextureFromFile(const std::filesystem::path& filepath, GLu
 	return true;
 }
 
-bool FileManager::LoadCornersFromFile(const std::filesystem::path& filepath, bool isPano01)
+bool FileManager::LoadCornersFromFile(const std::filesystem::path& filepath, CornerType cornerType)
 {
-	auto& corners = (isPano01) ? m_pano01_corners : m_pano02_corners;
+	
+	
 	std::ifstream file(filepath);
 	std::string str;
 	std::vector<glm::vec2> corner_pixels;
 	std::vector<glm::vec3> positions;
 	if (!file.is_open())
 	{
-		std::cout << filepath << "\nPredicted corner points from LED2-Net not found!\n";
+		std::cout << filepath << "\nPredicted corner points from HorizonNet not found!\n";
 		return false;
 	}
 
@@ -78,8 +79,25 @@ bool FileManager::LoadCornersFromFile(const std::filesystem::path& filepath, boo
 		positions.push_back(pos);
 		
 	}
-	corners.ClearPoints();
-	corners.AddPoints(corner_pixels, positions);
+
+	switch (cornerType)
+	{
+	case CornerType::Primary:
+		m_pano01_corners.ClearPoints();
+		m_pano01_corners.AddPoints(corner_pixels, positions);
+		break;
+	case CornerType::Secondary:
+		m_pano02_corners.ClearPoints();
+		m_pano02_corners.AddPoints(corner_pixels, positions);
+		break;
+	case CornerType::Transformed:
+		m_trans_corners.ClearPoints();
+		m_trans_corners.AddPoints(corner_pixels, positions);
+		break;
+	default:
+		std::cout << "No match corner Type!" << std::endl;
+		return false;
+	}
 	
 	return true;
 }

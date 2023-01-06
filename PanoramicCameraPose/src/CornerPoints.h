@@ -7,7 +7,7 @@ struct ImDrawList;
 
 struct CornerPoints
 {
-	void RenderCorners(ImDrawList* draw_list, const ImVec2& viewport, float ratio, bool isPano02) const;
+	void RenderCorners(ImDrawList* draw_list, const ImVec2& viewport, float ratio, bool isPano02, bool isTransfrom = false) const;
 	void AddPoints(const std::vector<glm::vec2>& pixels, const std::vector<glm::vec3>& positions);
 	void ClearPoints();
 	bool isLoad = false;
