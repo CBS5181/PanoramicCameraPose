@@ -18,7 +18,7 @@ using namespace openMVG::sfm;
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
     const std::vector<MatchPoints>& match_points_all, int method)
 {
-    const int debug_outputs_level = 1;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
+    const int debug_outputs_level = 2;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
 
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
@@ -147,7 +147,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 Eigen::Vector3d x2 = xR_spherical.col(i);
                 abs_sum += abs( x2.transpose() * E * x1 );
             }
-            std::cout << "Essential matrix equation residuals abs sum: " << abs_sum << std::endl;
+            std::cout << "Essential matrix equation residuals abs-sum: " << abs_sum << std::endl;
         }
 
         // Decompose the essential matrix and keep the best solution (if any)
@@ -241,6 +241,10 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 }
             }
 
+        }
+        else
+        {
+            std::cout << "RelativePoseFromEssential() failed!" << std::endl;
         }
     }
     

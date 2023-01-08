@@ -155,19 +155,9 @@ void PanoLayer::OnUIRender()
     SetImGuiTooltip((ImTextureID)tex, pos, io, my_tex_w, my_tex_h * 2);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    static float sz = 30.0f;
-    static ImVec4 colf = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
-    const ImU32 col = ImColor(colf);
-    const float thickness = 3.0f;
-    // draw mouse picking circle
-    if (s_left_pixel.x >= 0 && s_left_pixel.y >= 0)
-        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
-    if (s_right_pixel.x >= 0 && s_right_pixel.y >= 0)
-        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
-
-    ImVec2 viewport_bound{ m_ViewportBounds[0].x, m_ViewportBounds[0].y };
     
     // Draw Corner Points
+    ImVec2 viewport_bound{ m_ViewportBounds[0].x, m_ViewportBounds[0].y };
     ToolLayer::s_FileManager.GetPano01Corners().RenderCorners(draw_list, viewport_bound, m_ratio, false);
     ToolLayer::s_FileManager.GetPano02Corners().RenderCorners(draw_list, viewport_bound, m_ratio, true);
     ToolLayer::s_FileManager.GetTransformCorners().RenderCorners(draw_list, viewport_bound, m_ratio, false, true); // transformed corners
@@ -183,6 +173,22 @@ void PanoLayer::OnUIRender()
         draw_list->AddCircleFilled(ImVec2{ m_ViewportBounds[0].x + right_match.x * m_ratio, m_ViewportBounds[0].y + (right_match.y + 512) * m_ratio }, 5.0f * m_ratio, col_rand);
     }
 
+    // draw mouse picking circles
+    static float sz = 30.0f;
+    static ImVec4 colf = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
+    const ImU32 col = ImColor(colf);
+    const float thickness = 3.0f;
+    if (s_left_pixel.x >= 0 && s_left_pixel.y >= 0)
+    {
+        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+        draw_list->AddCircleFilled(ImVec2{ m_ViewportBounds[0].x + s_left_pixel.x * m_ratio , m_ViewportBounds[0].y + s_left_pixel.y * m_ratio }, sz * 0.06f * m_ratio, ImColor(255, 0, 0));
+    }
+    if (s_right_pixel.x >= 0 && s_right_pixel.y >= 0)
+    {
+        draw_list->AddCircle(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.5f * m_ratio, col, 0, thickness);
+        draw_list->AddCircleFilled(ImVec2{ m_ViewportBounds[0].x + s_right_pixel.x * m_ratio , m_ViewportBounds[0].y + (s_right_pixel.y + 512.0f) * m_ratio }, sz * 0.06f * m_ratio, ImColor(255, 0, 0));
+    }
+
     ImGui::End();
     ImGui::PopStyleVar(2);
     // Render to texture
@@ -195,24 +201,114 @@ void PanoLayer::OnUpdate()
     mouseX -= m_ViewportBounds[0].x;
     mouseY -= m_ViewportBounds[0].y;
     glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
-    //my = viewportSize.y - my; // 改為左下(0, 0) y往上為正
-    //std::cout << "x: " << mx << " y: " << my << std::endl;
 
     // mouse picking
     if (mouseX >= 0 && mouseY >= 0 && mouseX < viewportSize.x && mouseY < 1024.0f * m_ratio)
     {
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
-            if (mouseY < 512 * m_ratio)
+            const float snap_threshold = 10.0f;  //distance (pixel-wise) threshold for snapping to a point
+            if (mouseY < 512 * m_ratio)  //upper panorama?
             {
-                s_left_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
-                s_left_pixel.y = glm::min(mouseY / m_ratio, 511.0f);
+                //snap to close-by corner points?
+                CornerPoints& cps = ToolLayer::s_FileManager.GetPano01Corners();
+                bool snapped = false;
 
+                glm::vec2 p;
+                p.x = glm::min(mouseX / m_ratio, 1023.0f);
+                p.y = glm::min(mouseY / m_ratio, 511.0f);
+                
+                bool Case = 0;
+                for (int Case = 0; Case < 2; Case++)  //ceil and floor
+                {
+                    std::vector<glm::vec2>* pixels = NULL;
+                    std::vector<glm::vec3>* poss = NULL;
+                    if (Case == 0)
+                    {
+                        pixels = &cps.ceil_pixels;
+                        poss = &cps.ceil_positions;
+                    }
+                    else
+                    {
+                        pixels = &cps.floor_pixels;
+                        poss = &cps.floor_positions;
+                    }
+
+                    for (int ii = 0; ii < (*pixels).size(); ii++)
+                    {
+                        glm::vec2 P = (*pixels)[ii];
+
+                        float len = glm::length((p - P));
+                        if (len <= snap_threshold)
+                        {
+                            //snap!
+                            s_left_pixel = P;
+                            s_left_pos = (*poss)[ii];  //also use the 3d position!
+                            snapped = true;
+                            break;
+                        }
+                    }
+                    if (snapped)
+                        break;
+                }
+
+                if (!snapped)
+                {
+                    s_left_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
+                    s_left_pixel.y = glm::min(mouseY / m_ratio, 511.0f);
+                    s_left_pos = glm::vec3(0);
+                }
             }
-            else
+            else  //lower panorama?
             {
-                s_right_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
-                s_right_pixel.y = glm::min((mouseY - 512.0f * m_ratio) / m_ratio, 511.0f);
+                //snap to close-by corner points?
+                CornerPoints& cps = ToolLayer::s_FileManager.GetPano02Corners();
+                bool snapped = false;
+
+                glm::vec2 p;
+                p.x = glm::min(mouseX / m_ratio, 1023.0f);
+                p.y = glm::min((mouseY - 512.0f * m_ratio) / m_ratio, 511.0f);
+
+                bool Case = 0;
+                for (int Case = 0; Case < 2; Case++)  //ceil and floor
+                {
+                    std::vector<glm::vec2>* pixels = NULL;
+                    std::vector<glm::vec3>* poss = NULL;
+                    if (Case == 0)
+                    {
+                        pixels = &cps.ceil_pixels;
+                        poss = &cps.ceil_positions;
+                    }
+                    else
+                    {
+                        pixels = &cps.floor_pixels;
+                        poss = &cps.floor_positions;
+                    }
+
+                    for (int ii = 0; ii < (*pixels).size(); ii++)
+                    {
+                        glm::vec2 P = (*pixels)[ii];
+
+                        float len = glm::length((p - P));
+                        if (len <= snap_threshold)
+                        {
+                            //snap!
+                            s_right_pixel = P;
+                            s_right_pos = (*poss)[ii];  //also use the 3d position!
+                            snapped = true;
+                            break;
+                        }
+                    }
+                    if (snapped)
+                        break;
+                }
+
+                if (!snapped)
+                {
+                    s_right_pixel.x = glm::min(mouseX / m_ratio, 1023.0f);
+                    s_right_pixel.y = glm::min((mouseY - 512.0f * m_ratio) / m_ratio, 511.0f);
+                    s_right_pos = glm::vec3(0);
+                }
             }
         }
     }
@@ -230,4 +326,6 @@ Application* CreateApplication(int argc, char** argv)
 
 glm::vec2 PanoLayer::s_left_pixel(-1.0f, -1.0f);
 glm::vec2 PanoLayer::s_right_pixel(-1.0f, -1.0f);
+glm::vec3 PanoLayer::s_left_pos(0);
+glm::vec3 PanoLayer::s_right_pos(0);
 bool PanoLayer::isMouseButtonLeftClick = false;

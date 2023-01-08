@@ -6,30 +6,31 @@ void CornerPoints::RenderCorners(ImDrawList* draw_list, const ImVec2& viewport, 
 {
 	if (!isLoad) return ;
 	const ImU32& col_ceil = IM_COL32(0, 0, 255, 255); // show ceiling corners with blue color 
-	const ImU32& col_floor = IM_COL32(255, 0, 0, 255); // show ceiling corners with red color
+	const ImU32& col_floor = IM_COL32(0, 255, 0, 255); // show ceiling corners with green color
 	const ImU32& col_trans = IM_COL32(255, 255, 0, 255);
+	const float point_size = 5.0f;
 	if (isTransfrom)
 	{
 		for (auto& pixel : ceil_pixels)
 		{
-			draw_list->AddNgonFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, 5.0f * ratio, col_trans, 4);
+			draw_list->AddNgonFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, point_size * ratio, col_trans, 4);
 		}
 
 		for (auto& pixel : floor_pixels)
 		{
-			draw_list->AddNgonFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, 5.0f * ratio, col_trans, 4);
+			draw_list->AddNgonFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, point_size * ratio, col_trans, 4);
 		}
 	}
 	else
 	{
 		for (auto& pixel : ceil_pixels)
 		{
-			draw_list->AddCircleFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, 5.0f * ratio, col_ceil);
+			draw_list->AddCircleFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, point_size * ratio, col_ceil);
 		}
 
 		for (auto& pixel : floor_pixels)
 		{
-			draw_list->AddCircleFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, 5.0f * ratio, col_floor);
+			draw_list->AddCircleFilled(ImVec2{ viewport.x + pixel.x * ratio, viewport.y + (pixel.y + isPano02 * 512) * ratio }, point_size * ratio, col_floor);
 		}
 	}
 	

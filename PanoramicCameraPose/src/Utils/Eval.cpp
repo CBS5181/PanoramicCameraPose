@@ -79,10 +79,14 @@ namespace Utils
         std::cout << "Ground Truth Pose\n";
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_gt.asMatrix().format(fmt) << std::endl << std::endl;
-        //std::cout << "pose_gt center(normalized): " << pose_gt.center().normalized() << std::endl;
         Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
         Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
         std::cout << "Rotation Axis: " << axis_gt.format(vfmt) << "\tAngle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
+        //report gt pose's essential matrix?
+        if (true)
+        {
+            
+        }
 
         // ======================================================================================================================
         // Evaluation metrics method 

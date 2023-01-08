@@ -11,7 +11,8 @@ public:
 	virtual void OnUIRender() override;
 	virtual void OnUpdate() override;
 
-	static glm::vec2 s_left_pixel, s_right_pixel; // spherical coordinate
+	static glm::vec2 s_left_pixel, s_right_pixel; // pixel cooridinates
+	static glm::vec3 s_left_pos, s_right_pos; // 3D positions
 	static bool isMouseButtonLeftClick;
 
 private:

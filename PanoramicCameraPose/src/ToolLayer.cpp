@@ -141,6 +141,88 @@ void ToolLayer::SubdivideMatching(bool circular)
 	//new set of MatchPoints (to replace old one later)
 	MatchPoints new_points;
 
+	//test: additional "extrapolation" points?
+	//assume there are 4 points in CCW order toward the viewer
+	if (true && s_MatchPoints.left_positions.size() == 4 && s_MatchPoints.right_positions.size() == 4)
+	{
+		std::vector<glm::vec3> new_left_points;
+		std::vector<glm::vec2> new_left_pixels;
+		std::vector<glm::vec3> new_right_points;
+		std::vector<glm::vec2> new_right_pixels;
+
+		for (int Case = 0; Case < 2; Case++)  //left and right panorama:
+		{
+			glm::vec3 p0, p1, p2, p3;  //the 4 corners of the plane in CCW order
+
+			if (Case == 0)
+			{
+				p0 = s_MatchPoints.left_positions[0];
+				p1 = s_MatchPoints.left_positions[1];
+				p2 = s_MatchPoints.left_positions[2];
+				p3 = s_MatchPoints.left_positions[3];
+			}
+			else
+			{
+				p0 = s_MatchPoints.right_positions[0];
+				p1 = s_MatchPoints.right_positions[1];
+				p2 = s_MatchPoints.right_positions[2];
+				p3 = s_MatchPoints.right_positions[3];
+			}
+
+			//plane normal:
+			glm::vec3 n = glm::cross(glm::normalize((p2 - p1)), glm::normalize((p1 - p0)));
+			n = glm::normalize(n);
+			
+			//populate more points on the adjacent ceiling and floor planes:
+			const int subd = 6;  //inclusive of two ends
+			const float extrude_len = glm::length(p1 - p0) / 5;
+			for (int s = 0; s < subd; s++)
+			{
+				//ceiling: from edge p0->p1, extrude along normal
+				{
+					glm::vec3 pos = (p0 + (p1 - p0) * (float)s / (float)(subd - 1)) + n * extrude_len;
+					glm::vec2 pixel = SphericalToXY(PosToSpherical(pos, false), 1024, 512);
+					if (Case == 0)
+					{
+						new_left_points.push_back(pos);
+						new_left_pixels.push_back(pixel);
+					}
+					else
+					{
+						new_right_points.push_back(pos);
+						new_right_pixels.push_back(pixel);
+					}
+				}
+
+				//floor: from edge p2->p3, extrude along normal
+				{
+					glm::vec3 pos = (p2 + (p3 - p2) * (float)s / (float)(subd - 1)) + n * extrude_len;
+					glm::vec2 pixel = SphericalToXY(PosToSpherical(pos, false), 1024, 512);
+					if (Case == 0)
+					{
+						new_left_points.push_back(pos);
+						new_left_pixels.push_back(pixel);
+					}
+					else
+					{
+						new_right_points.push_back(pos);
+						new_right_pixels.push_back(pixel);
+					}
+				}
+			}
+		}
+
+		for (int ii = 0; ii < new_left_points.size(); ii++)
+		{
+			const ImU32 col = ImColor(ImVec4(0, 1, 1, 1.0f));
+
+			new_points.AddPoint(new_left_pixels[ii], new_right_pixels[ii], col, 10,
+				new_left_points[ii], new_right_points[ii]);
+		}
+
+		std::cout << "new_points:" << new_points.size() << std::endl;
+	}
+
 	if (!circular)
 	{
 		//ceiling then floor:
@@ -162,9 +244,9 @@ void ToolLayer::SubdivideMatching(bool circular)
 
 				//create and add the new intermediate points:
 				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
-				glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
+				glm::vec3 p1 = s_MatchPoints.left_positions[offset + i + 1];
 				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
-				glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
+				glm::vec3 P1 = s_MatchPoints.right_positions[offset + i + 1];
 				for (int j = 0; j < subd; j++)
 				{
 					//left:
@@ -177,7 +259,7 @@ void ToolLayer::SubdivideMatching(bool circular)
 					//the point's 2d pixel pos?
 					glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
 
-					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
+					const ImU32 col = ImColor(ImVec4(1, 1, 1, 1.0f));
 
 					//index of this point pair:
 					std::pair index(offset + i, j + 1);
@@ -233,7 +315,7 @@ void ToolLayer::SubdivideMatching(bool circular)
 					//the point's 2d pixel pos?
 					glm::vec2 XY = SphericalToXY(PosToSpherical(P, false), 1024, 512); // PosToSpherical sets false for HorizonNet's coordinate system
 
-					const ImU32 col = ImColor(ImVec4(0.4, 0.4, 0.4, 1.0f));
+					const ImU32 col = ImColor(ImVec4(1, 1, 1, 1.0f));
 
 					//index of this point pair:
 					std::pair index(offset + i, j + 1);
@@ -328,7 +410,7 @@ void ToolLayer::OnUIRender()
 		unsigned int ind = PanoLayer::s_left_pixel.y * IMG_WIDTH + PanoLayer::s_left_pixel.x;
 		const ImU32 col = ImColor(ImVec4((rand() % 256) / 255.0f, (rand() % 256) / 255.0f, (rand() % 256) / 255.0f, 1.0f));
 		/* Now Matching point by human doesn't have position information */
-		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, glm::vec3{0.0f}, glm::vec3{0.0f});
+		s_MatchPoints.AddPoint(PanoLayer::s_left_pixel, PanoLayer::s_right_pixel, col, 100, PanoLayer::s_left_pos, PanoLayer::s_right_pos);
 	}
 
 	if (ImGui::Button("Corner->Match"))
@@ -429,7 +511,7 @@ void ToolLayer::OnUIRender()
 		}
 	}
 
-	static int current_corner_type = 0;
+	static int current_corner_type = 1;
 	// Load LED2-Net corners
 	if (ImGui::Button("Load Corners"))
 	{
