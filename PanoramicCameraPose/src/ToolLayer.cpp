@@ -93,6 +93,13 @@ static glm::vec2 SphericalToXY(glm::vec2 s, float width, float height)
 	return xy;
 }
 
+//texts to show
+std::vector<std::string> g_texts_to_show;
+void AddTextToShow(const char* str)
+{
+	g_texts_to_show.push_back(std::string(str));
+}
+
 ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 {
 	srand(time(0));
@@ -130,18 +137,15 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	s_FileManager.SetPano02Info("assets/test_data/ZInD/50-75/123/pano_R0_364_T(0_318,-0_701,-0_001)");
 }
 
-void ToolLayer::SubdivideMatching(bool circular)
+void ToolLayer::PopulateMatching(bool circular)
 {
 	//add intermediate points on edges of the layout?
 	//assume the original points are upper ones and then lower ones
 
-	const int subd = 4;  //how many subdivided vertices to add alone an edge?
-	int num_corners = s_MatchPoints.left_positions.size() / 2;
-
 	//new set of MatchPoints (to replace old one later)
 	MatchPoints new_points;
 
-	//test: additional "extrapolation" points?
+	//test: "extrapolate" more points
 	//assume there are 4 points in CCW order toward the viewer
 	if (true && s_MatchPoints.left_positions.size() == 4 && s_MatchPoints.right_positions.size() == 4)
 	{
@@ -219,9 +223,10 @@ void ToolLayer::SubdivideMatching(bool circular)
 			new_points.AddPoint(new_left_pixels[ii], new_right_pixels[ii], col, 10,
 				new_left_points[ii], new_right_points[ii]);
 		}
-
-		std::cout << "new_points:" << new_points.size() << std::endl;
 	}
+
+	const int subd = 4;  //how many subdivided vertices to add alone an edge?
+	int num_corners = s_MatchPoints.left_positions.size() / 2;
 
 	if (!circular)
 	{
@@ -512,7 +517,7 @@ void ToolLayer::OnUIRender()
 	}
 
 	static int current_corner_type = 1;
-	// Load LED2-Net corners
+	// Load corners
 	if (ImGui::Button("Load Corners"))
 	{
 		const char* corner_filename[] = { "pred_corner_raw.txt", "pred_corner.txt", "pred_corner_peak.txt" };
@@ -578,12 +583,12 @@ void ToolLayer::OnUIRender()
 	ImGui::SameLine();
 	if (ImGui::Button("Subd"))
 	{
-		SubdivideMatching(false);
+		PopulateMatching(false);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SubdCircular"))  //circular subdivide
 	{
-		SubdivideMatching(true);
+		PopulateMatching(true);
 	}
 
 	// Save/Load temporary matching points
@@ -673,6 +678,18 @@ void ToolLayer::OnUIRender()
 	ImGui::Separator();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
+
+	//texts_to_show:
+	{
+		const int num_lines_to_show = 8;
+		int lines_to_show = std::min((int)g_texts_to_show.size(), num_lines_to_show);
+		for (int i = lines_to_show; i > 0; i--)
+		{
+			char str[1000] = { NULL };
+			sprintf(str, "[%03d] %s", g_texts_to_show.size()-i, g_texts_to_show[g_texts_to_show.size() - i].c_str());
+			ImGui::Text(str);
+		}
+	}
 }
 
 // static member initialization

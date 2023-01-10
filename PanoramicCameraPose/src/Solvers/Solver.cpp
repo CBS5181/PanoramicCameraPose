@@ -3,6 +3,7 @@
 #include "gurobi_c++.h"
 #include <imgui/imgui.h>
 #include "Utils/Eval.h"
+#include "ToolLayer.h"
 
 
 using namespace openMVG;
@@ -119,7 +120,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             else if (method == 1)  //solve essential matrix by Gurobi?
             {
                 SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
-                //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
             }
 
             E = Es[0];  //just take the first solved E
@@ -129,6 +129,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         if (debug_outputs_level >= 2)
         {
             std::cout << "Solved essential matrix:" << std::endl << E << std::endl;
+            
             std::cout << "Essential matrix equation residuals:" << std::endl;
             for (int i = 0; i < xL_spherical.cols(); i++)
             {
@@ -137,7 +138,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 std::cout << x2.transpose() * E * x1 << std::endl;
             }
         }
-        else if (debug_outputs_level >= 1)
+        if (debug_outputs_level >= 1)
         {
             //just report abs sum of essential matrix equation residuals
             float abs_sum = 0;
@@ -147,7 +148,11 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 Eigen::Vector3d x2 = xR_spherical.col(i);
                 abs_sum += abs( x2.transpose() * E * x1 );
             }
-            std::cout << "Essential matrix equation residuals abs-sum: " << abs_sum << std::endl;
+
+            char str[1000] = { NULL };
+            sprintf(str, "Essential matrix equation error: %f", abs_sum);
+            AddTextToShow(str);
+            std::cout << str << std::endl;
         }
 
         // Decompose the essential matrix and keep the best solution (if any)
@@ -244,7 +249,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         }
         else
         {
-            std::cout << "RelativePoseFromEssential() failed!" << std::endl;
+            AddTextToShow("RelativePoseFromEssential() failed!");
         }
     }
     
