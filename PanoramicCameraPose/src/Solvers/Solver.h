@@ -20,8 +20,10 @@ class RelativePoseSolver
 {
 public:
 	//method: 0=8-point algorithm, 1=Gurobi
+	//match_points_all: try multiple match-points
+	//errors: solved errors (rotation angle error and translation angle error)
 	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR,
-		const std::vector<MatchPoints> &match_points_all, int method = 0);
+		const std::vector<MatchPoints> &match_points_all, std::vector<glm::vec2> &errors, int method);
 
 	//solve essential matrix by Gurobi
 	//x1,x2: columns of bearing vectors of matched feature points
@@ -36,7 +38,6 @@ public:
 	static bool SolveEssentialMatrixGurobi(
 		const openMVG::Mat3X& x1,
 		const openMVG::Mat3X& x2,
-		const std::vector<bool>& user_flags,
 		std::vector<openMVG::Mat3>* pvec_E);
 
 	//test:

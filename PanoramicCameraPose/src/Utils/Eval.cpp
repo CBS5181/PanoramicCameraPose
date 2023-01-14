@@ -63,7 +63,8 @@ namespace Utils
         return openMVG::geometry::Pose3{ R, t };
     }
 
-    void EvaluationMetrics(const openMVG::geometry::Pose3& pose_gt, const openMVG::geometry::Pose3& pose_est)
+    void EvaluationMetrics(const openMVG::geometry::Pose3& pose_gt, 
+        const openMVG::geometry::Pose3& pose_est, float* rotation_error, float* translation_error)
     {
         Eigen::IOFormat fmt(6, 0, " ", "\n", "[", "]"), vfmt(6, 0, "", "", "", "", "[", "]"); // Matrix format and vector format.
         std::cout << "Estimated Pose\n";
@@ -96,14 +97,21 @@ namespace Utils
         double TAE = std::acos(std::clamp(pose_gt.translation().dot(pose_est.translation()), -1.0, 1.0));
 
         std::cout << std::string(50, '=') << std::endl;
+        
         std::stringstream buffer;
+        if(rotation_error)
+            *rotation_error = RE * 180.0 / M_PI;
         buffer << "Angular Rotation Error (in degree): " << std::setprecision(4) << RE * 180.0 / M_PI;
         std::cout << buffer.str() << std::endl;
         AddTextToShow(buffer.str().c_str());
+        
         buffer.clear();
+        if (translation_error)
+            *translation_error = TAE * 180.0 / M_PI;
         buffer << "Angular Translation error (in degree): " << std::setprecision(4) << TAE * 180.0 / M_PI;
         std::cout << buffer.str() << std::endl;
         AddTextToShow(buffer.str().c_str());
+        
         std::cout << std::string(50, '=') << std::endl;
     }
 }
