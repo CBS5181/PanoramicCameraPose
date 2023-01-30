@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "Eval.h"
 #include <regex>  // regex_match, smatch
+#include "ToolLayer.h"
 
 namespace Utils
 {
@@ -62,7 +63,8 @@ namespace Utils
         return openMVG::geometry::Pose3{ R, t };
     }
 
-    void EvaluationMetrics(const openMVG::geometry::Pose3& pose_gt, const openMVG::geometry::Pose3& pose_est)
+    void EvaluationMetrics(const openMVG::geometry::Pose3& pose_gt, 
+        const openMVG::geometry::Pose3& pose_est, float* rotation_error, float* translation_error)
     {
         Eigen::IOFormat fmt(6, 0, " ", "\n", "[", "]"), vfmt(6, 0, "", "", "", "", "[", "]"); // Matrix format and vector format.
         std::cout << "Estimated Pose\n";
@@ -82,12 +84,7 @@ namespace Utils
         Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
         Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
         std::cout << "Rotation Axis: " << axis_gt.format(vfmt) << "\tAngle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;
-        //report gt pose's essential matrix?
-        if (true)
-        {
-            
-        }
-
+        
         // ======================================================================================================================
         // Evaluation metrics method 
         // From paper Pose Estimation for Two-View Panoramas based on Keypoint Matching: a Comparative Studyand Critical Analysis
@@ -100,8 +97,21 @@ namespace Utils
         double TAE = std::acos(std::clamp(pose_gt.translation().dot(pose_est.translation()), -1.0, 1.0));
 
         std::cout << std::string(50, '=') << std::endl;
-        std::cout << "Angular Rotation Error (in degree): " << std::setprecision(4) << RE * 180.0 / M_PI << '\n';
-        std::cout << "Angular Translation error (in degree): " << std::setprecision(4) << TAE * 180.0 / M_PI << '\n';
+        
+        std::stringstream buffer;
+        if(rotation_error)
+            *rotation_error = RE * 180.0 / M_PI;
+        buffer << "Angular Rotation Error (in degree): " << std::setprecision(4) << RE * 180.0 / M_PI;
+        std::cout << buffer.str() << std::endl;
+        AddTextToShow(buffer.str().c_str());
+        
+        buffer.clear();
+        if (translation_error)
+            *translation_error = TAE * 180.0 / M_PI;
+        buffer << "Angular Translation error (in degree): " << std::setprecision(4) << TAE * 180.0 / M_PI;
+        std::cout << buffer.str() << std::endl;
+        AddTextToShow(buffer.str().c_str());
+        
         std::cout << std::string(50, '=') << std::endl;
     }
 }

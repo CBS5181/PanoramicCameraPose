@@ -93,6 +93,13 @@ static glm::vec2 SphericalToXY(glm::vec2 s, float width, float height)
 	return xy;
 }
 
+//texts to show
+std::vector<std::string> g_texts_to_show;
+void AddTextToShow(const char* str)
+{
+	g_texts_to_show.push_back(std::string(str));
+}
+
 ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 {
 	srand(time(0));
@@ -130,20 +137,17 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 	//s_FileManager.SetPano02Info("assets/test_data/ZInD/50-75/123/pano_R0_364_T(0_318,-0_701,-0_001)");
 }
 
-void ToolLayer::SubdivideMatching(bool circular)
+void PopulateMatching(MatchPoints &match_points, bool circular)
 {
 	//add intermediate points on edges of the layout?
 	//assume the original points are upper ones and then lower ones
 
-	const int subd = 4;  //how many subdivided vertices to add alone an edge?
-	int num_corners = s_MatchPoints.left_positions.size() / 2;
-
 	//new set of MatchPoints (to replace old one later)
 	MatchPoints new_points;
 
-	//test: additional "extrapolation" points?
+	//test: "extrapolate" more points
 	//assume there are 4 points in CCW order toward the viewer
-	if (true && s_MatchPoints.left_positions.size() == 4 && s_MatchPoints.right_positions.size() == 4)
+	if (true && match_points.left_positions.size() == 4 && match_points.right_positions.size() == 4)
 	{
 		std::vector<glm::vec3> new_left_points;
 		std::vector<glm::vec2> new_left_pixels;
@@ -156,17 +160,17 @@ void ToolLayer::SubdivideMatching(bool circular)
 
 			if (Case == 0)
 			{
-				p0 = s_MatchPoints.left_positions[0];
-				p1 = s_MatchPoints.left_positions[1];
-				p2 = s_MatchPoints.left_positions[2];
-				p3 = s_MatchPoints.left_positions[3];
+				p0 = match_points.left_positions[0];
+				p1 = match_points.left_positions[1];
+				p2 = match_points.left_positions[2];
+				p3 = match_points.left_positions[3];
 			}
 			else
 			{
-				p0 = s_MatchPoints.right_positions[0];
-				p1 = s_MatchPoints.right_positions[1];
-				p2 = s_MatchPoints.right_positions[2];
-				p3 = s_MatchPoints.right_positions[3];
+				p0 = match_points.right_positions[0];
+				p1 = match_points.right_positions[1];
+				p2 = match_points.right_positions[2];
+				p3 = match_points.right_positions[3];
 			}
 
 			//plane normal:
@@ -219,9 +223,10 @@ void ToolLayer::SubdivideMatching(bool circular)
 			new_points.AddPoint(new_left_pixels[ii], new_right_pixels[ii], col, 10,
 				new_left_points[ii], new_right_points[ii]);
 		}
-
-		std::cout << "new_points:" << new_points.size() << std::endl;
 	}
+
+	const int subd = 4;  //how many subdivided vertices to add alone an edge?
+	int num_corners = match_points.left_positions.size() / 2;
 
 	if (!circular)
 	{
@@ -235,18 +240,18 @@ void ToolLayer::SubdivideMatching(bool circular)
 					offset += num_corners;  //the latter half
 
 				//add the original point (on the start):
-				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
-					s_MatchPoints.right_pixels[offset + i],
-					s_MatchPoints.v_color[offset + i],
+				new_points.AddPoint(match_points.left_pixels[offset + i],
+					match_points.right_pixels[offset + i],
+					match_points.v_color[offset + i],
 					10,
-					s_MatchPoints.left_positions[offset + i],
-					s_MatchPoints.right_positions[offset + i]);
+					match_points.left_positions[offset + i],
+					match_points.right_positions[offset + i]);
 
 				//create and add the new intermediate points:
-				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
-				glm::vec3 p1 = s_MatchPoints.left_positions[offset + i + 1];
-				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
-				glm::vec3 P1 = s_MatchPoints.right_positions[offset + i + 1];
+				glm::vec3 p0 = match_points.left_positions[offset + i];
+				glm::vec3 p1 = match_points.left_positions[offset + i + 1];
+				glm::vec3 P0 = match_points.right_positions[offset + i];
+				glm::vec3 P1 = match_points.right_positions[offset + i + 1];
 				for (int j = 0; j < subd; j++)
 				{
 					//left:
@@ -268,12 +273,12 @@ void ToolLayer::SubdivideMatching(bool circular)
 				}
 
 				//add the original point (on the end):
-				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i + 1],
-					s_MatchPoints.right_pixels[offset + i + 1],
-					s_MatchPoints.v_color[offset + i + 1],
+				new_points.AddPoint(match_points.left_pixels[offset + i + 1],
+					match_points.right_pixels[offset + i + 1],
+					match_points.v_color[offset + i + 1],
 					10,
-					s_MatchPoints.left_positions[offset + i + 1],
-					s_MatchPoints.right_positions[offset + i + 1]);
+					match_points.left_positions[offset + i + 1],
+					match_points.right_positions[offset + i + 1]);
 
 
 			}
@@ -291,18 +296,18 @@ void ToolLayer::SubdivideMatching(bool circular)
 					offset += num_corners;  //the latter half
 
 				//add the original point (on the begin):
-				new_points.AddPoint(s_MatchPoints.left_pixels[offset + i],
-					s_MatchPoints.right_pixels[offset + i],
-					s_MatchPoints.v_color[offset + i],
+				new_points.AddPoint(match_points.left_pixels[offset + i],
+					match_points.right_pixels[offset + i],
+					match_points.v_color[offset + i],
 					10,
-					s_MatchPoints.left_positions[offset + i],
-					s_MatchPoints.right_positions[offset + i]);
+					match_points.left_positions[offset + i],
+					match_points.right_positions[offset + i]);
 
 				//create and add the new intermediate points:
-				glm::vec3 p0 = s_MatchPoints.left_positions[offset + i];
-				glm::vec3 p1 = s_MatchPoints.left_positions[offset + (i + 1) % num_corners];
-				glm::vec3 P0 = s_MatchPoints.right_positions[offset + i];
-				glm::vec3 P1 = s_MatchPoints.right_positions[offset + (i + 1) % num_corners];
+				glm::vec3 p0 = match_points.left_positions[offset + i];
+				glm::vec3 p1 = match_points.left_positions[offset + (i + 1) % num_corners];
+				glm::vec3 P0 = match_points.right_positions[offset + i];
+				glm::vec3 P1 = match_points.right_positions[offset + (i + 1) % num_corners];
 				for (int j = 0; j < subd; j++)
 				{
 					//left:
@@ -326,7 +331,7 @@ void ToolLayer::SubdivideMatching(bool circular)
 		}
 	}
 
-	s_MatchPoints = new_points;
+	match_points = new_points;
 }
 
 void ToolLayer::OnUIRender()
@@ -512,7 +517,7 @@ void ToolLayer::OnUIRender()
 	}
 
 	static int current_corner_type = 1;
-	// Load LED2-Net corners
+	// Load corners
 	if (ImGui::Button("Load Corners"))
 	{
 		const char* corner_filename[] = { "pred_corner_raw.txt", "pred_corner.txt", "pred_corner_peak.txt", "pred_corner_LED2Net.txt", "pred_corner_LGT.txt"};
@@ -578,12 +583,12 @@ void ToolLayer::OnUIRender()
 	ImGui::SameLine();
 	if (ImGui::Button("Subd"))
 	{
-		SubdivideMatching(false);
+		PopulateMatching(s_MatchPoints, false);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SubdCircular"))  //circular subdivide
 	{
-		SubdivideMatching(true);
+		PopulateMatching(s_MatchPoints, true);
 	}
 
 	// Save/Load temporary matching points
@@ -646,15 +651,16 @@ void ToolLayer::OnUIRender()
 		std::vector<MatchPoints> match_points_all;
 		match_points_all.push_back(s_MatchPoints);
 
-		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, method_type);
+		std::vector<glm::vec2> errors;
+
+		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, errors, method_type);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("CalculateAll"))
+	if (ImGui::Button("TryAll"))
 	{
-		std::vector<MatchPoints> match_points_all;
-		match_points_all.push_back(s_MatchPoints);
-
-		RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, method_type);
+		//let's try all possible wall-wall matching and report the best one (w.r.t. gt pose)
+		glm::vec2 best_error(-1, -1);
+		TryAll(left_img, right_img, method_type, best_error);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("SIFT")) // SIFT Solver
@@ -673,6 +679,77 @@ void ToolLayer::OnUIRender()
 	ImGui::Separator();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
+
+	//texts_to_show:
+	{
+		const int num_lines_to_show = 8;
+		int lines_to_show = std::min((int)g_texts_to_show.size(), num_lines_to_show);
+		for (int i = lines_to_show; i > 0; i--)
+		{
+			char str[1000] = { NULL };
+			sprintf(str, "[%03d] %s", g_texts_to_show.size()-i, g_texts_to_show[g_texts_to_show.size() - i].c_str());
+			ImGui::Text(str);
+		}
+	}
+}
+
+bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method_type, glm::vec2& best_error)
+{
+	//assume corners are loaded
+	CornerPoints &corners1 = s_FileManager.GetPano01Corners();
+	CornerPoints &corners2 = s_FileManager.GetPano02Corners();
+
+	const ImU32 col = ImColor(0);
+
+	//let's collect all possible ways of matching
+	std::vector<MatchPoints> match_points_all;
+
+	//for every wall of first panorama, try match to every wall of second panorama
+	for (int ii = 0; ii < corners1.ceil_pixels.size(); ii++)
+	{
+		int c10 = ii;
+		int c11 = (ii + 1) % corners1.ceil_pixels.size();
+
+		for (int jj = 0; jj < corners2.ceil_pixels.size(); jj++)
+		{
+			int c20 = jj;
+			int c21 = (jj + 1) % corners2.ceil_pixels.size();
+
+			//temporarily generate a MatchPoints for this wall-wall matching
+			MatchPoints match_points;
+			//4 corners of a wall:
+			match_points.AddPoint(corners1.ceil_pixels[c10], corners2.ceil_pixels[c20],
+				col, 10, corners1.ceil_positions[c10], corners2.ceil_positions[c20]);
+			match_points.AddPoint(corners1.ceil_pixels[c11], corners2.ceil_pixels[c21],
+				col, 10, corners1.ceil_positions[c11], corners2.ceil_positions[c21]);
+			match_points.AddPoint(corners1.floor_pixels[c11], corners2.floor_pixels[c21],
+				col, 10, corners1.floor_positions[c11], corners2.floor_positions[c21]);
+			match_points.AddPoint(corners1.floor_pixels[c10], corners2.floor_pixels[c20],
+				col, 10, corners1.floor_positions[c10], corners2.floor_positions[c20]);
+
+			PopulateMatching(match_points, false);
+
+			//then save the populated MatchPoints
+			match_points_all.push_back(match_points);
+		}
+	}
+
+	std::vector<glm::vec2> errors;
+	RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, errors, method_type);
+
+	//report errors
+	best_error = glm::vec2(999);  
+	for (int i = 0; i < errors.size(); i++)
+	{
+		std::cout << "err#" << i << ": " << errors[i].x << "," << errors[i].y << std::endl;
+
+		//find the smallest length (sum) of errors
+		if (glm::length(errors[i]) < glm::length(best_error))
+			best_error = errors[i];
+	}
+	std::cout << "best_err:" << best_error.x << "," << best_error.y << std::endl;
+
+	return true;
 }
 
 // static member initialization

@@ -11,10 +11,18 @@ public:
 	virtual void OnUIRender() override;
 	static MatchPoints s_MatchPoints;
 	static FileManager s_FileManager;
+
+	//try all possible wall-wall matchings and report the best one (w.r.t. gt pose)
+	//best_error: the best error (rotation angle error and translation angle error, in degree)
+	bool TryAll(std::string& left_img, std::string& right_img, int method_type, glm::vec2 &best_error);
+
 private:
 	std::vector<glm::vec3> m_PanoPos_gt;
-	int match_ind = 0;
-
-	//subdivide current matching in circular or not way
-	void SubdivideMatching(bool circular);
 };
+
+//populate a matchings by: 1) subdividing current matching in circular or not way
+//2) generte more matchings on adjacent "ceiling" and "floor" planes
+void PopulateMatching(MatchPoints& match_points, bool circular);
+
+//add a line to g_texts_to_show
+void AddTextToShow(const char* str);

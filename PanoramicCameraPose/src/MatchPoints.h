@@ -13,8 +13,7 @@ struct MatchPoints
 	std::vector<uint32_t> weights;
 	std::vector<glm::vec3> left_positions;  // 3D position from layout predictions
 	std::vector<glm::vec3> right_positions; // 3D position from layout predictions
-	std::vector<bool> user_flags;  //not used yet
-
+	
 	size_t size() { return left_pixels.size(); }
 
 	void AddPoint(const glm::vec2& left, const glm::vec2& right, const unsigned int color, 
@@ -61,8 +60,6 @@ struct MatchPoints
 		weights.erase(weights.begin() + index);
 		left_positions.erase(left_positions.begin() + index);
 		right_positions.erase(right_positions.begin() + index);
-
-		std::cout << "size:" << size() << std::endl;
 	}
 
 	void CovertCornerToMatch(CornerPoints& left_corner, CornerPoints& right_corner)

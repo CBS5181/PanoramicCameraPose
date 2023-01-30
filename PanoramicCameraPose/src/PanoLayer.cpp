@@ -208,7 +208,7 @@ void PanoLayer::OnUpdate()
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
             const float snap_threshold = 10.0f;  //distance (pixel-wise) threshold for snapping to a point
-            if (mouseY < 512 * m_ratio)  //upper panorama?
+            if (mouseY < 512 * m_ratio)  //first panorama?
             {
                 //snap to close-by corner points?
                 CornerPoints& cps = ToolLayer::s_FileManager.GetPano01Corners();
@@ -245,6 +245,9 @@ void PanoLayer::OnUpdate()
                             s_left_pixel = P;
                             s_left_pos = (*poss)[ii];  //also use the 3d position!
                             snapped = true;
+                            char str[1000] = { NULL };
+                            sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
+                            AddTextToShow(str);
                             break;
                         }
                     }
@@ -259,7 +262,7 @@ void PanoLayer::OnUpdate()
                     s_left_pos = glm::vec3(0);
                 }
             }
-            else  //lower panorama?
+            else  //second panorama?
             {
                 //snap to close-by corner points?
                 CornerPoints& cps = ToolLayer::s_FileManager.GetPano02Corners();
@@ -296,6 +299,9 @@ void PanoLayer::OnUpdate()
                             s_right_pixel = P;
                             s_right_pos = (*poss)[ii];  //also use the 3d position!
                             snapped = true;
+                            char str[1000] = { NULL };
+                            sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
+                            AddTextToShow(str);
                             break;
                         }
                     }

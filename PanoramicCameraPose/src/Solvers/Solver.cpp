@@ -3,6 +3,7 @@
 #include "gurobi_c++.h"
 #include <imgui/imgui.h>
 #include "Utils/Eval.h"
+#include "ToolLayer.h"
 
 
 using namespace openMVG;
@@ -16,16 +17,18 @@ using namespace openMVG::sfm;
 
 
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
-    const std::vector<MatchPoints>& match_points_all, int method)
+    const std::vector<MatchPoints>& match_points_all, std::vector<glm::vec2>& errors, int method)
 {
-    const int debug_outputs_level = 2;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
+    const int debug_outputs_level = 1;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
 
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
     ReadImage(jpg_filenameR, &imageR);
 
     //for every given match_points, find a solution, then report the "best" one
-
+    
+    errors.clear();
+    
     for (int ii = 0; ii < match_points_all.size(); ii++)
     {
         const MatchPoints& match_points = match_points_all[ii];
@@ -89,7 +92,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             );
         }
 
-
         // Essential geometry filtering of putative matches
         Mat2X
             xL(2, vec_PutativeMatches.size()),
@@ -118,8 +120,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             }
             else if (method == 1)  //solve essential matrix by Gurobi?
             {
-                SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, match_points.user_flags, &Es);
-                //SolveEssentialMatrixGurobiMulti(xL_spherical, xR_spherical, match_points.indices, &Es);
+                SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, &Es);
             }
 
             E = Es[0];  //just take the first solved E
@@ -129,6 +130,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         if (debug_outputs_level >= 2)
         {
             std::cout << "Solved essential matrix:" << std::endl << E << std::endl;
+            
             std::cout << "Essential matrix equation residuals:" << std::endl;
             for (int i = 0; i < xL_spherical.cols(); i++)
             {
@@ -137,7 +139,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 std::cout << x2.transpose() * E * x1 << std::endl;
             }
         }
-        else if (debug_outputs_level >= 1)
+        if (debug_outputs_level >= 1)
         {
             //just report abs sum of essential matrix equation residuals
             float abs_sum = 0;
@@ -147,7 +149,11 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 Eigen::Vector3d x2 = xR_spherical.col(i);
                 abs_sum += abs( x2.transpose() * E * x1 );
             }
-            std::cout << "Essential matrix equation residuals abs-sum: " << abs_sum << std::endl;
+
+            char str[1000] = { NULL };
+            sprintf(str, "Essential matrix equation error: %f", abs_sum);
+            AddTextToShow(str);
+            std::cout << str << std::endl;
         }
 
         // Decompose the essential matrix and keep the best solution (if any)
@@ -187,7 +193,11 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             // get folder name : pano_Rxx_T(x,x,x)
             std::filesystem::path p(jpg_filenameR);
             Pose3 pose_gt = Utils::ParseStrToPose(p.parent_path().filename().string());
-            Utils::EvaluationMetrics(pose_gt, relative_pose);
+
+            //evaluate error metrics and save calculated errors
+            float rotation_error = -1, translation_error = -1;
+            Utils::EvaluationMetrics(pose_gt, relative_pose, &rotation_error, &translation_error);
+            errors.push_back(glm::vec2(rotation_error, translation_error));
 
             // Add a new landmark (3D point with its image observations)
             for (int i = 0; i < inliers_indexes.size(); ++i)
@@ -244,7 +254,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
         }
         else
         {
-            std::cout << "RelativePoseFromEssential() failed!" << std::endl;
+            AddTextToShow("RelativePoseFromEssential() failed!");
         }
     }
     
@@ -253,7 +263,6 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     const Mat3X& x1,
     const Mat3X& x2,
-    const std::vector<bool>& user_flags,
     std::vector<Mat3>* pvec_E)
 {
     assert(x1.rows() == x2.rows());
@@ -323,6 +332,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
         }
 
         //solve!
+        model.getEnv().set(GRB_IntParam_OutputFlag, false);  //silent
         model.set(GRB_IntParam_NonConvex, 2);
 
         model.optimize();
