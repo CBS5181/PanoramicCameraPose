@@ -103,15 +103,17 @@ namespace Utils
             *rotation_error = RE * 180.0 / M_PI;
         buffer << "Angular Rotation Error (in degree): " << std::setprecision(4) << RE * 180.0 / M_PI;
         std::cout << buffer.str() << std::endl;
-        AddTextToShow(buffer.str().c_str());
+        //ToolLayer::s_TextLog.AddLog("%s\t", buffer.str().c_str());
+        //AddTextToShow(buffer.str().c_str());
         
-        buffer.clear();
+        // buffer.clear(); // The clear() member function is used to clear the error state of the stream, not clear the contents of a stringstream.
+        buffer.str(std::string()); // use this instead!.
         if (translation_error)
             *translation_error = TAE * 180.0 / M_PI;
         buffer << "Angular Translation error (in degree): " << std::setprecision(4) << TAE * 180.0 / M_PI;
         std::cout << buffer.str() << std::endl;
-        AddTextToShow(buffer.str().c_str());
-        
+        //ToolLayer::s_TextLog.AddLog("%s\n", buffer.str().c_str());
+        //AddTextToShow(buffer.str().c_str());   
         std::cout << std::string(50, '=') << std::endl;
     }
 }

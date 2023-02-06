@@ -2,6 +2,7 @@
 #include "Layer.h"
 #include "MatchPoints.h"
 #include "FileManager.h"
+#include "Utils/Log.h"
 #include <vector>
 
 class ToolLayer : public Layer
@@ -11,6 +12,7 @@ public:
 	virtual void OnUIRender() override;
 	static MatchPoints s_MatchPoints;
 	static FileManager s_FileManager;
+	static Log s_TextLog;
 
 	//try all possible wall-wall matchings and report the best one (w.r.t. gt pose)
 	//best_error: the best error (rotation angle error and translation angle error, in degree)

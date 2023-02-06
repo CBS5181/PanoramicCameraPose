@@ -119,7 +119,7 @@ ToolLayer::ToolLayer() : m_PanoPos_gt(IMG_WIDTH * IMG_HEIGHT)
 
 	// set default filepath for test quickly
 	s_FileManager.SetPano01Info("assets/test_data/ZInD/02/pano_orig");
-	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R0_294_T(-0_282,-0_692,0_001)");
+	s_FileManager.SetPano02Info("assets/test_data/ZInD/02/pano_R38_506_T(0_672,-1_721,0_0)");
 	
 	//s_FileManager.SetPano01Info("assets/test_data/ZInD/75-100/019/pano_orig");
 	//s_FileManager.SetPano02Info("assets/test_data/ZInD/75-100/019/pano_R1_049_T(0_467,0_052,-0_003)");
@@ -658,6 +658,7 @@ void ToolLayer::OnUIRender()
 	ImGui::SameLine();
 	if (ImGui::Button("TryAll"))
 	{
+		s_TextLog.Clear();
 		//let's try all possible wall-wall matching and report the best one (w.r.t. gt pose)
 		glm::vec2 best_error(-1, -1);
 		TryAll(left_img, right_img, method_type, best_error);
@@ -681,7 +682,11 @@ void ToolLayer::OnUIRender()
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
 
 	//texts_to_show:
-	{
+	// list all result (Rotation / Translation) and highlight best error as green color!
+	ImGui::Separator();
+	s_TextLog.Draw();
+	
+	/*{
 		const int num_lines_to_show = 8;
 		int lines_to_show = std::min((int)g_texts_to_show.size(), num_lines_to_show);
 		for (int i = lines_to_show; i > 0; i--)
@@ -690,7 +695,7 @@ void ToolLayer::OnUIRender()
 			sprintf(str, "[%03d] %s", g_texts_to_show.size()-i, g_texts_to_show[g_texts_to_show.size() - i].c_str());
 			ImGui::Text(str);
 		}
-	}
+	}*/
 }
 
 bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method_type, glm::vec2& best_error)
@@ -738,14 +743,19 @@ bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method
 	RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), match_points_all, errors, method_type);
 
 	//report errors
+	std::stringstream buffer;
 	best_error = glm::vec2(999);  
 	for (int i = 0; i < errors.size(); i++)
 	{
-		std::cout << "err#" << i << ": " << errors[i].x << "," << errors[i].y << std::endl;
-
+		buffer.str(std::string());
+		buffer << "err#" << i << ": " << "RE = " << errors[i].x << ", TE = " << errors[i].y;
+		s_TextLog.AddLog("%s\n", buffer.str().c_str());
 		//find the smallest length (sum) of errors
 		if (glm::length(errors[i]) < glm::length(best_error))
+		{
+			s_TextLog.best_line = i;
 			best_error = errors[i];
+		}
 	}
 	std::cout << "best_err:" << best_error.x << "," << best_error.y << std::endl;
 
@@ -755,3 +765,4 @@ bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method
 // static member initialization
 MatchPoints ToolLayer::s_MatchPoints;
 FileManager ToolLayer::s_FileManager;
+Log ToolLayer::s_TextLog;
