@@ -1,6 +1,9 @@
 #Binaries
 bin/
 bin-int/
+#except
+!PanoramicCameraPose/vendor/opencv/bin
+!PanoramicCameraPose/vendor/OpenMVG/bin
 
 # Visual Studio files and folder
 .vs/
