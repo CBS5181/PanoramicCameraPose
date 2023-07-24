@@ -246,8 +246,9 @@ void PanoLayer::OnUpdate()
                             s_left_pos = (*poss)[ii];  //also use the 3d position!
                             snapped = true;
                             char str[1000] = { NULL };
-                            sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
-                            AddTextToShow(str);
+                            //sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
+                            //AddTextToShow(str);
+                            //ToolLayer::s_TextLog.AddLog(str);
                             break;
                         }
                     }
@@ -300,8 +301,9 @@ void PanoLayer::OnUpdate()
                             s_right_pos = (*poss)[ii];  //also use the 3d position!
                             snapped = true;
                             char str[1000] = { NULL };
-                            sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
-                            AddTextToShow(str);
+                            //sprintf(str, "Snapped %.0f,%.0f -> %.0f,%.0f (%d)", p.x, p.y, P.x, P.y, ii);
+                            //AddTextToShow(str);
+                            //ToolLayer::s_TextLog.AddLog(str);
                             break;
                         }
                     }

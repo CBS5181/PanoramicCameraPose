@@ -16,6 +16,12 @@ public:
 	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR, const std::string& loftr_filename, MatchPoints& match_points);
 };
 
+class SPHORBSolver
+{
+public:
+	static void Solve(const char* jpg_filenameL, const char* jpg_filenameR, MatchPoints& match_points);
+};
+
 class RelativePoseSolver
 {
 public:

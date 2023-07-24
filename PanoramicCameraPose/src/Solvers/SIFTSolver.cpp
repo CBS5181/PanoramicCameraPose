@@ -120,7 +120,8 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
             // Define the AContrario angular error adaptor
             using KernelType =
                 openMVG::robust::ACKernelAdaptor_AngularRadianError<
-                openMVG::EightPointRelativePoseSolver, // Use the 8 point solver in order to estimate E
+                openMVG::essential::kernel::ThreePointUprightRelativePoseSolver,
+                //openMVG::EightPointRelativePoseSolver, // Use the 8 point solver in order to estimate E
                 //openMVG::essential::kernel::FivePointSolver, // Use the 5 point solver in order to estimate E
                 openMVG::AngularError,
                 Mat3>;
@@ -158,13 +159,12 @@ void SIFTSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, con
                 geometry::Pose3 relative_pose;
                 std::vector<uint32_t> inliers_indexes;
                 std::vector<Vec3> inliers_X;
-                RelativePoseFromEssential(xL_spherical,
+                if (RelativePoseFromEssential(xL_spherical,
                     xR_spherical,
                     E, vec_inliers,
                     &relative_pose,
                     &inliers_indexes,
-                    &inliers_X);
-                if (true)
+                    &inliers_X))
                 {
                     std::cout << "inliers_indexes : " << inliers_indexes.size() << std::endl;
                     for (auto i : inliers_indexes) std::cout << i << " ";

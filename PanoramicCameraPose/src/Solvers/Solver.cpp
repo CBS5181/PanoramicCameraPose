@@ -19,7 +19,7 @@ using namespace openMVG::sfm;
 void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, 
     const std::vector<MatchPoints>& match_points_all, std::vector<glm::vec2>& errors, int method)
 {
-    const int debug_outputs_level = 1;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
+    const int debug_outputs_level = 0;  //0: no outputs at all, 1: minimal output, 2: all output debug messages and pictures
 
     Image<unsigned char> imageL, imageR;
     ReadImage(jpg_filenameL, &imageL);
@@ -122,8 +122,16 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             {
                 SolveEssentialMatrixGurobi(xL_spherical, xR_spherical, &Es);
             }
-
-            E = Es[0];  //just take the first solved E
+            // ZInD test cases 75-100/10112
+            // Gurobi excception:Double value is Nan.
+            // Gurobi bug at model.setObjective(obj); causes E size is zero.!
+            if (Es.size())
+                E = Es[0];  //just take the first solved E
+            else // use eight-point instead.
+            {
+                openMVG::EightPointRelativePoseSolver::Solve(xL_spherical, xR_spherical, &Es);
+                E = Es[0];
+            }
         }
 
         //report essential matrix equation errors
@@ -152,7 +160,7 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
 
             char str[1000] = { NULL };
             sprintf(str, "Essential matrix equation error: %f", abs_sum);
-            AddTextToShow(str);
+            //AddTextToShow(str);
             std::cout << str << std::endl;
         }
 
@@ -192,7 +200,17 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
             // ==Ground truth Pose==
             // get folder name : pano_Rxx_T(x,x,x)
             std::filesystem::path p(jpg_filenameR);
-            Pose3 pose_gt = Utils::ParseStrToPose(p.parent_path().filename().string());
+            std::string str = p.parent_path().filename().string();
+            Pose3 pose_gt;
+            if (str == "pano_secondary")
+            {
+                pose_gt = Utils::LoadM3DPose();
+                //pose_gt = Utils::LoadZInDPose();
+            }
+            else
+            {
+                pose_gt = Utils::ParseStrToPose(str);
+            }
 
             //evaluate error metrics and save calculated errors
             float rotation_error = -1, translation_error = -1;
@@ -209,52 +227,55 @@ void RelativePoseSolver::Solve(const char* jpg_filenameL, const char* jpg_filena
                 tiny_scene.structure.insert({ tiny_scene.structure.size(), landmark });
             }
 
-            // Perform Bundle Adjustment of the scene
-            Bundle_Adjustment_Ceres bundle_adjustment_obj;
-            if (bundle_adjustment_obj.Adjust(tiny_scene,
-                Optimize_Options(
-                    Intrinsic_Parameter_Type::NONE,
-                    Extrinsic_Parameter_Type::ADJUST_ALL,
-                    Structure_Parameter_Type::ADJUST_ALL)))
-            {
-                std::vector<double> residuals;
-                // Compute reprojection error
-                const Pose3 pose0 = tiny_scene.poses[tiny_scene.views[0]->id_pose];
-                const Pose3 pose1 = tiny_scene.poses[tiny_scene.views[1]->id_pose];
+            //// Perform Bundle Adjustment of the scene
+            //Bundle_Adjustment_Ceres bundle_adjustment_obj;
+            //if (bundle_adjustment_obj.Adjust(tiny_scene,
+            //    Optimize_Options(
+            //        Intrinsic_Parameter_Type::NONE,
+            //        Extrinsic_Parameter_Type::ADJUST_ALL,
+            //        Structure_Parameter_Type::ADJUST_ALL)))
+            //{
+            //    std::vector<double> residuals;
+            //    // Compute reprojection error
+            //    const Pose3 pose0 = tiny_scene.poses[tiny_scene.views[0]->id_pose];
+            //    const Pose3 pose1 = tiny_scene.poses[tiny_scene.views[1]->id_pose];
 
-                for (const auto& landmark_it : tiny_scene.GetLandmarks())
-                {
-                    const Landmark& landmark = landmark_it.second;
-                    const Observations& obs = landmark.obs;
-                    Observations::const_iterator iterObs_xI = obs.find(tiny_scene.views[0]->id_view);
-                    Observations::const_iterator iterObs_xJ = obs.find(tiny_scene.views[1]->id_view);
+            //    for (const auto& landmark_it : tiny_scene.GetLandmarks())
+            //    {
+            //        const Landmark& landmark = landmark_it.second;
+            //        const Observations& obs = landmark.obs;
+            //        Observations::const_iterator iterObs_xI = obs.find(tiny_scene.views[0]->id_view);
+            //        Observations::const_iterator iterObs_xJ = obs.find(tiny_scene.views[1]->id_view);
 
-                    const Observation& ob_x0 = iterObs_xI->second;
-                    const Observation& ob_x1 = iterObs_xJ->second;
+            //        const Observation& ob_x0 = iterObs_xI->second;
+            //        const Observation& ob_x1 = iterObs_xJ->second;
 
-                    const Vec2 residual_I = cameraL.residual(pose0(landmark.X), ob_x0.x); // pose0() 做 rotation 和 translation
-                    const Vec2 residual_J = cameraR.residual(pose1(landmark.X), ob_x1.x);
-                    residuals.emplace_back(residual_I.norm());
-                    residuals.emplace_back(residual_J.norm());
+            //        const Vec2 residual_I = cameraL.residual(pose0(landmark.X), ob_x0.x); // pose0() 做 rotation 和 translation
+            //        const Vec2 residual_J = cameraR.residual(pose1(landmark.X), ob_x1.x);
+            //        residuals.emplace_back(residual_I.norm());
+            //        residuals.emplace_back(residual_J.norm());
 
-                }
+            //    }
 
-                if (debug_outputs_level >= 1)
-                {
-                    std::cout << "(BA) Residual statistics (pixels):" << std::endl;
-                    minMaxMeanMedian<double>(residuals.cbegin(), residuals.cend(), std::cout);
-                }
+            //    if (debug_outputs_level >= 1)
+            //    {
+            //        std::cout << "(BA) Residual statistics (pixels):" << std::endl;
+            //        minMaxMeanMedian<double>(residuals.cbegin(), residuals.cend(), std::cout);
+            //    }
 
-                if (debug_outputs_level >= 2)
-                {
-                    openMVG::sfm::Save(tiny_scene, "EssentialGeometry_refined.ply", ESfM_Data(ALL));
-                }
-            }
+            //    if (debug_outputs_level >= 2)
+            //    {
+            //        openMVG::sfm::Save(tiny_scene, "EssentialGeometry_refined.ply", ESfM_Data(ALL));
+            //    }
+            //}
 
         }
         else
         {
+		    float rotation_error = -999, translation_error = -999;
+		    errors.push_back(glm::vec2(rotation_error, translation_error));
             AddTextToShow("RelativePoseFromEssential() failed!");
+            //ToolLayer::s_TextLog.AddLog("RelativePoseFromEssential() failed!\n");
         }
     }
     
@@ -268,7 +289,9 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     assert(x1.rows() == x2.rows());
     assert(x1.cols() == x2.cols());
 
-    GRBEnv env = GRBEnv();
+    GRBEnv env = GRBEnv(true);
+    env.set(GRB_IntParam_OutputFlag, 0);
+    env.start();
     GRBModel model = GRBModel(env);
 
     try
@@ -303,11 +326,11 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
                 term += row[j] * vars_E[j];
             }
             
-            obj += term * term;            
+            obj += term * term; // argmin(X) for|AX|^2 
         }
         model.setObjective(obj);  //to minimize
 
-        ////constraints: 
+        ////constraints: s.t. |X|^2 = 1 (regularization constraint)
 
         //E vector is unit vector
         {
@@ -330,11 +353,10 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             model.addConstr(vars_E[6] == 0);
             model.addConstr(vars_E[8] == 0);
         }
-
         //solve!
         model.getEnv().set(GRB_IntParam_OutputFlag, false);  //silent
         model.set(GRB_IntParam_NonConvex, 2);
-
+        
         model.optimize();
         int status = model.get(GRB_IntAttr_Status);
         if (status == 3)
@@ -349,6 +371,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
             std::cout << "[SolveEssentialMatrixGurobi] optimize failed! status:" << status << std::endl;
             return false;
         }
+        
 
         //get results
         Mat3 E;
@@ -361,7 +384,7 @@ bool RelativePoseSolver::SolveEssentialMatrixGurobi(
     }
     catch (GRBException e)
     {
-        std::cout << "Gurobi excception:" << e.getMessage() << std::endl;
+        std::cout << "Gurobi exception:" << e.getMessage() << std::endl;
     }
 }
 

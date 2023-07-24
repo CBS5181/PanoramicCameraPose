@@ -47,6 +47,7 @@ project "PanoramicCameraPose"
         "%{IncludeDir.eigen}",
         "%{IncludeDir.stb_image}",
         "%{IncludeDir.OpenMVG}",
+		"%{IncludeDir.OpenCV}",
 		"C:/gurobi952/win64/include"
     }
 	
@@ -90,6 +91,7 @@ project "PanoramicCameraPose"
 		{
 			"%{prj.name}/vendor/OpenMVG/lib/Release",
 			"%{prj.name}/vendor/glfw/lib/Release",
+			"%{prj.name}/vendor/opencv/lib",
 			"C:/gurobi952/win64/lib"
 		}
 		
@@ -117,12 +119,14 @@ project "PanoramicCameraPose"
             "tiff.lib",
             "zlib.lib",
 			"gurobi95.lib",
-			"gurobi_c++md2019.lib"
+			"gurobi_c++md2019.lib",
+			"opencv_world455.lib"
         }
 		
 		postbuildcommands 
 		{ 
-			"{COPYFILE} %{wks.location}/%{prj.name}/vendor/OpenMVG/bin/Release/*.dll %{wks.location}bin/" .. outputdir .. "/%{prj.name}/"
+			"{COPYFILE} %{wks.location}/%{prj.name}/vendor/OpenMVG/bin/Release/*.dll %{wks.location}bin/" .. outputdir .. "/%{prj.name}/",
+			"{COPYFILE} %{wks.location}/%{prj.name}/vendor/opencv/bin/opencv_world455.dll %{wks.location}bin/" .. outputdir .. "/%{prj.name}/"
 		}
             
     

@@ -35,6 +35,7 @@
 #include "openMVG/multiview/triangulation.hpp"
 #include "openMVG/multiview/solver_essential_eight_point.hpp"
 #include "openMVG/multiview/solver_essential_five_point.hpp"
+#include "openMVG/multiview/solver_essential_three_point.hpp"
 #include "openMVG/robust_estimation/robust_estimator_ACRansac.hpp"
 #include "openMVG/robust_estimation/robust_estimator_ACRansacKernelAdaptator.hpp"
 #include "openMVG/sfm/pipelines/sfm_robust_model_estimation.hpp"

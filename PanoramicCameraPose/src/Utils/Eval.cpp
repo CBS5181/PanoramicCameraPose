@@ -59,6 +59,81 @@ namespace Utils
         Eigen::IOFormat vfmt(6, 0, "", "", "", "", "[", "]");
         openMVG::Vec3 t{ x, y, z };
         t = transition * t;
+        std::cout << t.format(vfmt) << std::endl;
+        t.normalize();
+        return openMVG::geometry::Pose3{ R, t };
+    }
+
+    openMVG::geometry::Pose3 LoadM3DPose()
+    {
+        
+        double tx, ty, tz, qx, qy, qz, qw;
+        std::string name = ToolLayer::s_FileManager.GetPano01Filepath().parent_path().string() + "/relative_pose.txt";
+        // Step 1: Load relative_pose.txt
+        std::ifstream file;
+        file.open(name);
+        if (file.is_open())
+        {
+            std::string str;
+            
+            while (std::getline(file, str))
+            {
+                std::istringstream iss(str);
+                iss >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
+            }
+        }
+        else
+        {
+            std::cout << "There is no relative file " << std::quoted(name) << std::endl;
+        }
+        
+
+        // Step 2: Get rotation matrix and translation vector
+        // Transition to OpenMVG coordinate system
+        Eigen::Quaternion<double> quat{ qw, qx, -qz, -qy }; // m3d: change x to x, y to -z, z to -y
+        
+        openMVG::Mat3 R = quat.toRotationMatrix();
+        std::cout << R;
+        openMVG::Vec3 t{ tx, -ty, -tz };
+        Eigen::IOFormat vfmt(6, 0, "", "", "", "", "[", "]");
+        std::cout << t.format(vfmt) << std::endl;
+        t.normalize();
+        return openMVG::geometry::Pose3{ R, t };
+    }
+
+    openMVG::geometry::Pose3 LoadZInDPose()
+    {
+
+        double tx, ty, tz, qx, qy, qz, qw;
+        std::string name = ToolLayer::s_FileManager.GetPano01Filepath().parent_path().string() + "/relative_pose.txt";
+        // Step 1: Load relative_pose.txt
+        std::ifstream file;
+        file.open(name);
+        if (file.is_open())
+        {
+            std::string str;
+
+            while (std::getline(file, str))
+            {
+                std::istringstream iss(str);
+                iss >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
+            }
+        }
+        else
+        {
+            std::cout << "There is no relative file " << std::quoted(name) << std::endl;
+        }
+
+
+        // Step 2: Get rotation matrix and translation vector
+        // Transition to OpenMVG coordinate system
+        Eigen::Quaternion<double> quat{ qw, qx, -qz, -qy }; // zind: change x to -x, y to z axis, and z to -y axis
+
+        openMVG::Mat3 R = quat.toRotationMatrix();
+        std::cout << R;
+        openMVG::Vec3 t{ -tx, -tz, ty };
+        Eigen::IOFormat vfmt(6, 0, "", "", "", "", "[", "]");
+        std::cout << t.format(vfmt) << std::endl;
         t.normalize();
         return openMVG::geometry::Pose3{ R, t };
     }
@@ -71,7 +146,7 @@ namespace Utils
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_est.asMatrix().format(fmt) << std::endl << std::endl;
 
-        //std::cout << "pose center(normalized): " << pose_est.center().normalized() << std::endl;
+        std::cout << "pose center(normalized): " << pose_est.center().normalized() << std::endl;
         // calculate rotation angle and axis from rotation martix
         Eigen::AngleAxisd angleAxis(pose_est.rotation());
         Eigen::Vector3d& axis = angleAxis.axis();
@@ -81,6 +156,7 @@ namespace Utils
         std::cout << "Ground Truth Pose\n";
         std::cout << "[             R               |    T    ]" << std::endl;
         std::cout << std::fixed << pose_gt.asMatrix().format(fmt) << std::endl << std::endl;
+        std::cout << "pose center(normalized): " << pose_gt.center().normalized() << std::endl;
         Eigen::AngleAxisd angleAxis_gt(pose_gt.rotation());
         Eigen::Vector3d& axis_gt = angleAxis_gt.axis();
         std::cout << "Rotation Axis: " << axis_gt.format(vfmt) << "\tAngle: " << angleAxis_gt.angle() * (180.0 / M_PI) << std::endl << std::endl;

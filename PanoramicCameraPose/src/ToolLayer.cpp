@@ -149,6 +149,8 @@ void PopulateMatching(MatchPoints &match_points, bool circular)
 	//assume there are 4 points in CCW order toward the viewer
 	if (true && match_points.left_positions.size() == 4 && match_points.right_positions.size() == 4)
 	{
+		std::cout << "===========Enter============\n";
+		
 		std::vector<glm::vec3> new_left_points;
 		std::vector<glm::vec2> new_left_pixels;
 		std::vector<glm::vec3> new_right_points;
@@ -521,6 +523,7 @@ void ToolLayer::OnUIRender()
 	if (ImGui::Button("Load Corners"))
 	{
 		const char* corner_filename[] = { "pred_corner_raw.txt", "pred_corner.txt", "pred_corner_peak.txt", "pred_corner_LED2Net.txt", "pred_corner_LGT.txt"};
+		const char* corner_same_filename[] = { "pred_corner_raw.txt", "pred_corner_same.txt", "pred_corner_peak.txt", "pred_corner_LED2Net.txt", "pred_corner_LGT.txt" };
 		std::filesystem::path corner_path01 = s_FileManager.GetPano01Filepath() / corner_filename[current_corner_type];
 		std::filesystem::path corner_path02 = s_FileManager.GetPano02Filepath() / corner_filename[current_corner_type];
 		std::filesystem::path transCornersPath = s_FileManager.GetPano02Filepath().parent_path() / "trans_corner.txt";
@@ -542,8 +545,8 @@ void ToolLayer::OnUIRender()
 			s_FileManager.GetPano01Corners().isLoad = true;
 			s_FileManager.GetPano02Corners().isLoad = true;
 			
-			/*====== Following code segments for loading corners as matching points======
-	
+			//====== Following code segments for loading corners as matching points======
+			
 			std::ifstream file(corner_path01);
 			std::ifstream file2(corner_path02);
 			std::string str, str2;
@@ -568,7 +571,7 @@ void ToolLayer::OnUIRender()
 
 				s_MatchPoints.AddPoint(corner_pixel, corner_pixel2, col, 10, pos, pos2);
 			}
-			*/
+			
 		}
 	}
 	ImGui::SameLine();
@@ -677,6 +680,12 @@ void ToolLayer::OnUIRender()
 		std::cout << loftr_file << std::endl;
 		LoFTRSolver::Solve(left_img.c_str(), right_img.c_str(), loftr_file, s_MatchPoints);
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("SPHORB")) // SPHORB Solver
+	{
+		s_MatchPoints.ClearPixel();
+		SPHORBSolver::Solve(left_img.c_str(), right_img.c_str(), s_MatchPoints);
+	}
 	ImGui::Separator();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
 	ImGui::Combo("Solve Method", &method_type, solve_methods, IM_ARRAYSIZE(solve_methods));
@@ -708,6 +717,7 @@ bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method
 
 	//let's collect all possible ways of matching
 	std::vector<MatchPoints> match_points_all;
+	std::vector<std::pair<int, int>> match_walls;
 
 	//for every wall of first panorama, try match to every wall of second panorama
 	for (int ii = 0; ii < corners1.ceil_pixels.size(); ii++)
@@ -736,6 +746,7 @@ bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method
 
 			//then save the populated MatchPoints
 			match_points_all.push_back(match_points);
+			match_walls.emplace_back(ii, jj);
 		}
 	}
 
@@ -744,21 +755,65 @@ bool ToolLayer::TryAll(std::string &left_img, std::string &right_img, int method
 
 	//report errors
 	std::stringstream buffer;
-	best_error = glm::vec2(999);  
+	best_error = glm::vec2(999);
+	std::cout << "match_walls size():" << match_walls.size() << std::endl;
+	std::cout << "errors.size():" << errors.size() << std::endl;
+
+	// sort error by index vector
+	std::vector<std::size_t> p(errors.size());
+	std::iota(p.begin(), p.end(), 0);
+	std::sort(p.begin(), p.end(), [&](std::size_t i, std::size_t j) {
+		return glm::length(errors[i]) < glm::length(errors[j]);
+	});
+
 	for (int i = 0; i < errors.size(); i++)
 	{
 		buffer.str(std::string());
-		buffer << "err#" << i << ": " << "RE = " << errors[i].x << ", TE = " << errors[i].y;
+		buffer << "wall " << match_walls[p[i]].first << " <-> Wall " << match_walls[p[i]].second << " err#" << i << ": " << "RE = " << errors[p[i]].x << ", TE = " << errors[p[i]].y;
 		s_TextLog.AddLog("%s\n", buffer.str().c_str());
+		s_TextLog.best_line = 0;
+		best_error = errors[p[0]];
 		//find the smallest length (sum) of errors
-		if (glm::length(errors[i]) < glm::length(best_error))
+		/*if (errors[i].x >= 0 && glm::length(errors[i]) < glm::length(best_error))
 		{
 			s_TextLog.best_line = i;
 			best_error = errors[i];
-		}
+		}*/
 	}
 	std::cout << "best_err:" << best_error.x << "," << best_error.y << std::endl;
 
+	// two best wall result
+	MatchPoints& match_points = match_points_all[p[0]];
+	std::cout << "left:" << match_points.left_pixels.size() << "\tright:" << match_points.right_pixels.size() << std::endl;
+
+
+	int cur_wall01 = match_walls[p[0]].first;
+	int i = 1;
+	while (i < p.size() && match_walls[p[i]].first == cur_wall01) ++i;
+	
+	MatchPoints& pts = match_points_all[p[i]];
+	std::cout << "left:" << pts.left_pixels.size() << "\tright:" << pts.right_pixels.size() << std::endl;
+
+	match_points.left_pixels.insert(match_points.left_pixels.end(), pts.left_pixels.begin(), pts.left_pixels.end());
+	match_points.right_pixels.insert(match_points.right_pixels.end(), pts.right_pixels.begin(), pts.right_pixels.end());
+	std::vector<MatchPoints> temp = { match_points };
+	RelativePoseSolver::Solve(left_img.c_str(), right_img.c_str(), temp, errors, method_type);
+
+	
+	std::cout << "temp size():" << temp.size() << std::endl;
+	std::cout << "left:" << temp[0].left_pixels.size() << "\tright:" << temp[0].right_pixels.size() << std::endl;
+	std::cout << "errors.size():" << errors.size() << std::endl;
+
+	buffer.str(std::string());
+	buffer << "Wall " << match_walls[p[0]].first << " <-> Wall " << match_walls[p[0]].second;
+	buffer << " Wall " << match_walls[p[i]].first << " <-> Wall " << match_walls[p[i]].second;
+	buffer << " RE = " << errors[0].x << " TE = " << errors[0].y << std::endl;
+	s_TextLog.AddLog("%s\n", buffer.str().c_str());
+	if (errors[0].x >= 0 && glm::length(errors[0]) < glm::length(best_error))
+	{
+		s_TextLog.best_line = std::size(p);
+		best_error = errors[0];
+	}
 	return true;
 }
 

@@ -130,7 +130,8 @@ void LoFTRSolver::Solve(const char* jpg_filenameL, const char* jpg_filenameR, co
             // Define the AContrario angular error adaptor
             using KernelType =
                 openMVG::robust::ACKernelAdaptor_AngularRadianError<
-                openMVG::EightPointRelativePoseSolver, // Use the 8 point solver in order to estimate E
+                openMVG::essential::kernel::ThreePointUprightRelativePoseSolver,
+                //openMVG::EightPointRelativePoseSolver, // Use the 8 point solver in order to estimate E
                 //openMVG::essential::kernel::FivePointSolver, // Use the 5 point solver in order to estimate E
                 openMVG::AngularError,
                 Mat3>;
